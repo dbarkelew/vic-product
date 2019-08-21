@@ -26,10 +26,30 @@ ${vcsso-button-login}  id=submit
 # expected text values
 
 *** Keywords ***
+Navigate To VC UI Home Page
+	Log To Console  Navigating to URL ${VC_URL} ...
+    Go To  ${VC_URL}
+
 Login On Single Sign-On Page
     [Tags]  secret
-    Wait Until Element Is Visible  ${vcsso-image-title}  timeout=${EXPLICIT_WAIT}
+    Log To Console  Login into single sign-on...
+    ${rc}  ${output}=  Run And Return Rc And Output  govc about -u=%{TEST_URL}
+    Log  ${output}
+    Should Be Equal As Integers  ${rc}  0
+    ${status}=  Run Keyword And Return Status  Should Contain Any  ${output}  6.0  6.5  6.7.1
+    ${vcsso-image-title}=  Set Variable If  ${status}  ${vcsso-image-title}  id=titleVmware
+    Wait Until Element Is Visible  ${vcsso-image-title}  timeout=${EXPLICIT_WAIT_FOR_VCSSO_PAGE}
     Input Text  ${vcsso-username}  %{TEST_USERNAME}
     Input Text  ${vcsso-password}  %{TEST_PASSWORD}
     Click Button  ${vcsso-button-login}
-    Verify VIC UI Header Display
+
+Verify VC Home Page
+	Log To Console  Verifying VC home page...
+    :FOR  ${i}  IN RANGE  20
+    \   ${status}=  Run Keyword And Return Status  Wait Until Page Contains  Summary
+    \   Exit For Loop If  ${status}
+    \   Sleep  3
+    Wait Until Page Contains  Summary
+    Wait Until Page Contains  Monitor
+    Wait Until Page Contains  Configure
+    Wait Until Page Contains  Permissions

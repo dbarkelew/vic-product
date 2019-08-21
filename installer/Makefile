@@ -30,21 +30,23 @@ GOLINT ?= $(GOPATH)/bin/golint$(BIN_ARCH)
 
 .PHONY: gas ova
 
-LDFLAGS := $(shell BUILD_NUMBER=${BUILD_NUMBER} $(BASE_DIR)/scripts/version-linker-flags.sh)
+LDFLAGS := $(shell BUILD_NUMBER=${BUILD_NUMBER} TAG=${TAG} $(BASE_DIR)/scripts/version-linker-flags.sh)
 
 ovfenv := $(BIN)/ovfenv
 vic-ova-ui := $(BIN)/vic-ova-ui
 ova-webserver := $(BIN)/ova-webserver
+ova-landing-server := $(BIN)/ova-landing-server
 toolbox := $(BIN)/toolbox
 rpctool := $(BIN)/rpctool
 gas: $(GAS)
 ovfenv: $(ovfenv)
 vic-ova-ui: $(vic-ova-ui)
 ova-webserver: $(ova-webserver)
+ova-landing-server: $(ova-landing-server)
 toolbox: $(toolbox)
 rpctool: $(rpctool)
 tools: $(DEP) $(GOLINT) $(GAS)
-all: golint gofmt govet gas $(ovfenv) $(vic-ova-ui) $(ova-webserver) $(toolbox) $(rpctool)
+all: golint gofmt govet gas $(ovfenv) $(vic-ova-ui) $(ova-webserver) $(ova-landing-server) $(toolbox) $(rpctool)
 
 vendor: $(DEP)
 	@echo restoring vendor
@@ -52,11 +54,12 @@ vendor: $(DEP)
 
 gas: $(GAS)
 	@echo running go AST tool
-	@$(GAS) -quiet fileserver/... lib/... ovatools/... pkg/... tagvm/... toolbox/... 2> /dev/null
+	@$(GAS) -quiet fileserver/... landing_server/... lib/... ovatools/... pkg/... toolbox/... 2> /dev/null
 
 golint: $(GOLINT)
 	@echo checking go lint...
 	@$(call golintf,github.com/vmware/vic-product/installer/fileserver/...)
+	@$(call golintf,github.com/vmware/vic-product/installer/landing_server/...)
 	@$(call golintf,github.com/vmware/vic-product/installer/lib/...)
 	@$(call golintf,github.com/vmware/vic-product/installer/ovatools/...)
 	@$(call golintf,github.com/vmware/vic-product/installer/pkg/...)
@@ -87,20 +90,13 @@ endef
 
 clean:
 	@echo removing binaries
-	@rm -rf $(BIN)/*
-	@echo removing OVA installer files...
-	@rm -rf $(BASE_DIR)build/baseimage/cache
-	@rm -f $(BASE_DIR)build/baseimage/*.img
-	@rm -f build/baseimage/root/installer.env
-	@$(BASE_DIR)build/cleanup.sh
+	rm -rf $(BIN)
 
 # exit 1 if golint complains about anything other than comments
 golintf = $(GOLINT) $(1) | sh -c "! grep -v 'lib/apiservers/portlayer/restapi/operations'" | sh -c "! grep -v 'lib/config/dynamic/admiral/client'" | sh -c "! grep -v 'should have comment'" | sh -c "! grep -v 'comment on exported'" | sh -c "! grep -v 'by other packages, and that stutters'" | sh -c "! grep -v 'error strings should not be capitalized'"
 
 $(ovfenv): $(call godeps,ovatools/ovfenv/*.go)
 	@echo building ovfenv linux...
-	@echo build $(dir $<)
-	@echo output $@
 	@GOARCH=amd64 GOOS=linux $(TIME) $(GO) build $(RACE) -ldflags "$(LDFLAGS)" -o ./$@ ./$(dir $<)
 
 $(vic-ova-ui): $(call godeps,ovatools/vic-ova-ui/*.go)
@@ -109,6 +105,10 @@ $(vic-ova-ui): $(call godeps,ovatools/vic-ova-ui/*.go)
 
 $(ova-webserver): $(call godeps,fileserver/*.go)
 	@echo building ova-webserver
+	@GOARCH=amd64 GOOS=linux $(TIME) $(GO) build $(RACE) -ldflags "$(LDFLAGS)" -o ./$@ ./$(dir $<)
+
+$(ova-landing-server): $(call godeps,landing_server/*.go)
+	@echo building ova-landing-server
 	@GOARCH=amd64 GOOS=linux $(TIME) $(GO) build $(RACE) -ldflags "$(LDFLAGS)" -o ./$@ ./$(dir $<)
 
 $(toolbox): $(call godeps,toolbox/*.go)

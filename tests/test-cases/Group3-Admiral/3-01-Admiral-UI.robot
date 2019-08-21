@@ -15,7 +15,7 @@
 *** Settings ***
 Documentation  Test 3-01 Admiral UI
 Resource  ../../resources/Util.robot
-Test Timeout  5 minutes
+Test Timeout  20 minutes
 Test Setup  Run Keyword  Setup Base State
 Test Teardown  Close All Browsers
 
@@ -27,9 +27,11 @@ ${cp-card-status-stopped}  STOPPED
 
 *** Keywords ***
 Setup Base State
+    Sleep  3 minutes
     Open Firefox Browser
     Navigate To VIC UI Home Page
     Login On Single Sign-On Page
+    Verify VIC UI Header Display
 
 Cleanup VCH And Teardown
     [Arguments]  ${vch-name}
@@ -38,7 +40,7 @@ Cleanup VCH And Teardown
 
 *** Test Cases ***
 Add VCH to default project and create a container
-    Download VIC Engine If Not Already
+    Download VIC Engine If Not Already  %{OVA_IP}
     ${vch-name}=  Install VCH  certs=${false}
     Add New Container Host And Verify Card  ${vch-name}
     Navigate To Containers Page
@@ -47,5 +49,5 @@ Add VCH to default project and create a container
     Provision And Verify New Container  ${busybox-docker-image-name}  ${busybox-docker-image-tag}  ${sample-command-exit}  ${cp-card-status-stopped}
     Unselect Containers Page Iframe
 
-    Delete VCH Card Using Dropdown Menu  ${vch-name}
+    Delete VCH Card  ${vch-name}
     [Teardown]  Cleanup VCH And Teardown  ${vch-name}

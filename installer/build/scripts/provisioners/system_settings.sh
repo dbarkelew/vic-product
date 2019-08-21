@@ -23,14 +23,16 @@ systemctl enable vic-appliance-load-docker-images.service
 systemctl enable vic-appliance-tls.service
 systemctl enable sshd_permitrootlogin.service
 systemctl enable getty@tty2.service
-systemctl enable ovf-network.service ova-firewall.service
+systemctl enable ovf-network.service ova-firewall.service ovf-ntp.service
 
 # Enable systemd component services
 systemctl enable get_token.timer reconfigure_token.path psc-ready.target
 systemctl enable admiral.service
 systemctl enable harbor.service
-systemctl enable fileserver.service
+systemctl enable landing_server.service fileserver.service
 systemctl enable vic-machine-server.service
+systemctl enable configure-rsyslog.service
+systemctl enable vic-appliance-rsyslog-localfiles.service
 
 # Set our vic target as the default boot target
 systemctl set-default vic-appliance.target

@@ -28,6 +28,11 @@
   },
   {
     "type": "file",
+    "source": "../bin/ova-landing-server",
+    "destination": "/usr/local/bin/ova-landing-server"
+  },
+  {
+    "type": "file",
     "source": "../bin/toolbox",
     "destination": "/usr/bin/toolbox"
   },
@@ -111,6 +116,11 @@
     "destination": "/etc/vmware/upgrade/util.sh"
   },
   {
+    "type": "file",
+    "source": "scripts/upgrade/notary-migration-fix.sh",
+    "destination": "/etc/vmware/upgrade/notary-migration-fix.sh"
+  },
+  {
     "type": "shell",
     "script": "scripts/provisioners/provision_admiral.sh"
   },
@@ -160,6 +170,11 @@
   },
   {
     "type": "file",
+    "source": "scripts/verify.py",
+    "destination": "/etc/vmware/verify.py"
+  },
+  {
+    "type": "file",
     "source": "../fileserver/html",
     "destination": "/opt/vmware/fileserver/html"
   },
@@ -167,6 +182,11 @@
     "type": "file",
     "source": "../fileserver/files/open_source_license.txt",
     "destination": "/opt/vmware/fileserver/files/open_source_license.txt"
+  },
+  {
+    "type": "file",
+    "source": "../landing_server/html",
+    "destination": "/opt/vmware/landing_server/html"
   },
   {
     "type": "shell",

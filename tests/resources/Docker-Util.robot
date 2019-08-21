@@ -17,6 +17,9 @@ Documentation  This resource contains any keywords dealing with docker operation
 Library  OperatingSystem
 Library  Process
 
+*** Variables ***
+${busybox}  busybox
+
 *** Keywords ***
 # The local dind version is embedded in Dockerfile
 # docker:1.13-dind
@@ -43,6 +46,11 @@ Start Docker Daemon Locally
     Fail  Failed to initialize local dockerd
     [Return]  ${handle}  ${dockerd-pid}
 
+Setup Docker Daemon
+    ${handle}  ${docker_daemon_pid}=  Start Docker Daemon Locally
+    Set Test Variable  ${handle}
+    Set Test Variable  ${docker_daemon_pid}
+
 Kill Local Docker Daemon
     [Arguments]  ${handle}  ${dockerd-pid}
     Terminate Process  ${handle}
@@ -66,27 +74,102 @@ Setup CA Cert for Harbor Registry
     Run command and Return output  mv ca.crt /etc/docker/certs.d/${ova-ip}/ca.crt
     Run command and Return output  ls /etc/docker/certs.d/${ova-ip}
 
-Docker Login To Harbor Registry
+Secret Docker Login To Harbor Registry
     [Tags]  secret
-    [Arguments]  ${registry_ip}  ${docker}=${DEFAULT_LOCAL_DOCKER}  ${docker_endpoint}=${DEFAULT_LOCAL_DOCKER_ENDPOINT}
-    ${output}=  Run command and Return output  ${docker} -H ${docker_endpoint} login ${registry_ip} --username %{TEST_USERNAME} --password %{TEST_PASSWORD}
+    [Arguments]  ${registry_ip}  ${docker}=${DEFAULT_LOCAL_DOCKER}  ${docker_endpoint}=-H ${DEFAULT_LOCAL_DOCKER_ENDPOINT}
+    ${output}=  Run command and Return output  ${docker} ${docker_endpoint} login ${registry_ip} --username %{TEST_USERNAME} --password %{TEST_PASSWORD}
+    [Return]  ${output}
+
+Docker Login To Harbor Registry
+    [Arguments]  ${registry_ip}  ${docker}=${DEFAULT_LOCAL_DOCKER}  ${docker_endpoint}=-H ${DEFAULT_LOCAL_DOCKER_ENDPOINT}
+    ${output}=  Secret Docker Login To Harbor Registry  ${registry_ip}  ${docker}  ${docker_endpoint}
+    Log  ${output}
     Should Contain  ${output}  Login Succeeded
     Log To Console  \nDocker login successfully
 
 Pull And Tag Docker Image
-    [Arguments]  ${image-name}  ${tagged-image}  ${docker}=${DEFAULT_LOCAL_DOCKER}  ${docker-endpoint}=${DEFAULT_LOCAL_DOCKER_ENDPOINT}
-    Run command and Return output  ${docker} -H ${docker-endpoint} pull ${image-name}
-    ${output}=  Run command and Return output  ${docker} -H ${docker-endpoint} image ls
+    [Arguments]  ${image-name}  ${tagged-image}  ${docker}=${DEFAULT_LOCAL_DOCKER}  ${docker-endpoint}=-H ${DEFAULT_LOCAL_DOCKER_ENDPOINT}
+    Run command and Return output  ${docker} ${docker-endpoint} pull ${image-name}
+    ${output}=  Run command and Return output  ${docker} ${docker-endpoint} image ls
     Should Contain  ${output}  ${image-name}
     Log To Console  \n${image-name} pulled successfully
-    Run command and Return output  ${docker} -H ${docker-endpoint} tag ${image-name} ${tagged-image}
+    Run command and Return output  ${docker} ${docker-endpoint} tag ${image-name} ${tagged-image}
     Log To Console  \n${image-name} tagged successfully
     [Return]  ${tagged-image}
 
 Push Docker Image To Harbor Registry
-    [Arguments]  ${registry-ip}  ${image-tag}  ${docker}=${DEFAULT_LOCAL_DOCKER}  ${docker-endpoint}=${DEFAULT_LOCAL_DOCKER_ENDPOINT}
+    [Arguments]  ${registry-ip}  ${image-tag}  ${docker}=${DEFAULT_LOCAL_DOCKER}  ${docker-endpoint}=-H ${DEFAULT_LOCAL_DOCKER_ENDPOINT}
     Setup CA Cert for Harbor Registry  ${registry-ip}
-    Wait Until Keyword Succeeds  3x  4s  Docker Login To Harbor Registry  ${registry-ip}
-    ${rc}=  Run And Return Rc  ${docker} -H ${docker-endpoint} push ${image-tag}
+    Wait Until Keyword Succeeds  12x  5s  Docker Login To Harbor Registry  ${registry-ip}  ${docker}  ${docker-endpoint}
+    ${rc}  ${output}=  Run And Return Rc And Output  ${docker} ${docker-endpoint} push ${image-tag}
+    Log  ${output}
     Should Be Equal As Integers  ${rc}  0
     Log To Console  \n${image-tag} pushed successfully
+
+Pull And Verify Image In Harbor Registry
+    [Arguments]  ${registry-ip}  ${image-name}  ${image-tag}  ${ova-cert-path}  ${docker}=${DEFAULT_LOCAL_DOCKER}  ${docker-endpoint}=-H ${DEFAULT_LOCAL_DOCKER_ENDPOINT}
+    ${harbor-image}=  Set Variable  ${registry-ip}/${DEFAULT_HARBOR_PROJECT}/${image-name}
+    ${harbor-image-tagged}=  Set Variable  ${harbor-image}:${image-tag}
+    Set Global Variable  ${OVA_CERT_PATH}  ${ova-cert-path}
+    Setup CA Cert for Harbor Registry  ${registry-ip}
+    Wait Until Keyword Succeeds  10x  10s  Docker Login To Harbor Registry  ${registry-ip}
+    Run command and Return output  ${docker} ${docker-endpoint} pull ${harbor-image-tagged}
+    ${output}=  Run command and Return output  ${docker} ${docker-endpoint} image ls
+    Should Contain  ${output}  ${harbor-image}
+
+Wait Until Container Stops
+    [Arguments]  ${container}  ${sleep-time}=1
+    :FOR  ${idx}  IN RANGE  0  60
+    \   ${out}=  Run  docker ${VCH-PARAMS} inspect -f '{{.State.Running}}' ${container}
+    \   Return From Keyword If  '${out}' == 'false'
+    \   Sleep  ${sleep-time}
+    Fail  Container did not stop within 60 seconds
+
+Stop All Containers
+    ${rc}  ${container_ids}=  Run And Return Rc And Output  docker ${VCH-PARAMS} ps -q
+    Log  ${container_ids}
+    Should Be Equal As Integers  ${rc}  0
+    @{container_ids}=  Split To Lines  ${container_ids}
+    :FOR  ${container_id}  IN  @{container_ids}
+    \   ${rc}  ${output}=  Run And Return Rc And Output  docker ${VCH-PARAMS} stop ${container_id}
+    \   Should Be Equal As Integers  ${rc}  0
+    \   Wait Until Container Stops  ${container_id} 
+
+Run Docker Regression Tests For VCH
+    Log To Console  \nRunning VCH regression tests...
+    ${rc}  ${output}=  Run And Return Rc And Output  docker ${VCH-PARAMS} pull ${busybox}
+    Should Be Equal As Integers  ${rc}  0
+    # Pull an image that has been pulled already
+    ${rc}  ${output}=  Run And Return Rc And Output  docker ${VCH-PARAMS} pull ${busybox}
+    Should Be Equal As Integers  ${rc}  0
+    ${rc}  ${output}=  Run And Return Rc And Output  docker ${VCH-PARAMS} images
+    Should Be Equal As Integers  ${rc}  0
+    Should Contain  ${output}  busybox
+    ${rc}  ${container}=  Run And Return Rc And Output  docker ${VCH-PARAMS} create ${busybox} /bin/top
+    Should Be Equal As Integers  ${rc}  0
+    ${rc}  ${output}=  Run And Return Rc And Output  docker ${VCH-PARAMS} start ${container}
+    Should Be Equal As Integers  ${rc}  0
+    ${rc}  ${output}=  Run And Return Rc And Output  docker ${VCH-PARAMS} ps
+    Should Be Equal As Integers  ${rc}  0
+    Should Contain  ${output}  /bin/top
+    ${rc}  ${output}=  Run And Return Rc And Output  docker ${VCH-PARAMS} stop ${container}
+    Should Be Equal As Integers  ${rc}  0
+    Wait Until Container Stops  ${container}
+    ${rc}  ${output}=  Run And Return Rc And Output  docker ${VCH-PARAMS} ps -a
+    Should Be Equal As Integers  ${rc}  0
+    Should Contain  ${output}  Exited
+    ${rc}  ${output}=  Run And Return Rc And Output  docker ${VCH-PARAMS} rm ${container}
+    Should Be Equal As Integers  ${rc}  0
+    ${rc}  ${output}=  Run And Return Rc And Output  docker ${VCH-PARAMS} ps -a
+    Should Be Equal As Integers  ${rc}  0
+    Should Not Contain  ${output}  /bin/top
+
+Verify Running Busybox Container And Its Pushed Harbor Image
+    [Arguments]  ${registry-ip}  ${image-tag}  ${cert-path}  ${docker}=${DEFAULT_LOCAL_DOCKER}  ${docker-endpoint}=-H ${DEFAULT_LOCAL_DOCKER_ENDPOINT}
+    # verify previously created container is migrated and still running
+    ${rc}  ${output}=  Run And Return Rc And Output  ${docker} ${docker-endpoint} ps
+    Log  ${output}
+    Should Be Equal As Integers  ${rc}  0
+    Should Contain  ${output}  /bin/top
+    # verify previously tagged and pushed image is still available
+    Pull And Verify Image In Harbor Registry  ${registry-ip}  ${busybox}  ${image-tag}  ${cert-path}

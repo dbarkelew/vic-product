@@ -6,25 +6,23 @@ You can list, add, edit and delete replication endpoints and replication rules, 
 - You cannot edit replication rules that are enabled. 
 - You cannot delete replication rules that have running jobs. If a rule is disabled, the running jobs under it will be stopped. 
 
-**Prerequisites**
+## Prerequisites
 
+- Log in to vSphere Integrated Containers Management Portal with a vSphere administrator or Management Portal administrator account. For information about logging in to vSphere Integrated Containers Management Portal, see [Logging In to the Management Portal](logging_in_mp.md).
 - You deployed at least two instances of vSphere Integrated Containers Registry. 
 - You created at least one replication endpoint.
 - You created at least one replication rule.
 
-**Procedure**
+## Procedure
 
-1. Go to http://<i>vic_appliance_address</i>, click the link to **Go to the vSphere Integrated Containers Management Portal**, and enter the vCenter Server Single Sign-On credentials. 
+1. Select the **Administration** tab, click **Global Registries**, and click **Replication Endpoints**.
 
-   Use an account with Cloud Administrator privileges.
-2. Select the **Administration** tab, click **Registries**, and click **Replication Endpoints**.
-
-   Existing endpoints appear in the **Endpoints** view.  
-3. To edit or delete an endpoint, click the 3 vertical dots next to an endpoint name and select **Edit Endpoint** or **Delete Endpoint**.
-4. To edit, enable or disable, or delete a replication rule, click **Replication Rules**, click the 3 vertical dots next to a rule name and select **Edit**, **Enable** or **Disable**, or **Delete**.
+    Existing endpoints appear in the **Endpoints** view.  
+3. To edit or delete an endpoint, select the check box next to an endpoint name and click **Edit** or **Delete**.
+4. To edit or delete a replication rule, click **Replication Rules**, select the check box next to a rule name and click **Edit** or **Delete**.
 
 
-**Result**
+## Result
 
 - If you enabled a rule, replication starts immediately. 
 - If you disabled a rule, vSphere Integrated Containers Registry attempts to stop all running jobs. It can take some time for all jobs to finish. 

@@ -167,6 +167,11 @@ components should use this certificate for user facing connections and can acces
 this directory as a read only volume to the component container
 (`-v /storage/data/certs:/path/on/container:ro`)
 
+For user provided certificates, the user must provide in PEM format a server certificate, unencrypted
+server private key, and certificate authority certificate. If the server private key is not in PKCS8
+format (beginning with `-----BEGIN PRIVATE KEY-----`), the appliance will attempt to convert it into
+PKCS8 format before saving it for use by the appliance.
+
 `/storage/data/certs/` contains:
 ```
 - cert_gen_type    # self-signed or custom
@@ -186,6 +191,22 @@ this directory as a read only volume to the component container
 - All shell scripts MUST be checked using ShellCheck and resolve all errors prior to inclusion
 
   https://github.com/koalaman/shellcheck
+
+
+## Networking
+
+The VIC appliance has one NIC. The VIC appliance will respond to ICMP echo requests and has the
+following ports open for services running on the appliance. Users may customize ports for certain
+services during appliance deployment.
+
+```
+22   SSH
+80   Loading page and redirect to Getting Started Page
+443  Harbor Registry
+8282 Admiral Container Management Portal
+8443 VIC Machine API
+9443 VIC appliance Getting Started Page
+```
 
 
 ## Component Inclusion and Continuous Integration
@@ -363,15 +384,14 @@ migration and upgrade internally.
 
 ### Appliance Upgrade Process
 
-_NOTE_ This process describes functionality that is not yet available.
-Refer to [Legacy Appliance Upgrade](#legacy-appliance-upgrade).
+This process describes functionality in VIC appliance versions 1.4.0 or greater.
+Refer to [Legacy Appliance Upgrade](#legacy-appliance-upgrade) for versions 1.3.1 or less.
 
 The upgrade script located at `/etc/vmware/upgrade/upgrade.sh` performs the upgrade functions and
 logs to `/var/log/vmware/upgrade.log`.
 
 Given a running VIC appliance ("previous appliance"), deploy a new version of the VIC appliance
-("new appliance") onto the same datastore. Datastore colocation is required for the new appliance to
-migrate the data from the previous appliance. Power on the new appliance and wait for the [Boot
+("new appliance") in the same cluster. Power on the new appliance and wait for the [Boot
 Stage](SUPPORT.md#boot-stage) to complete.
 
 If the previous appliance used DHCP and no static IP address settings were provided for the new
@@ -379,13 +399,12 @@ appliance, DHCP provided configuration will be used. If the previous appliance u
 IP address settings were provided for the new appliance, the provided network
 configuration will remain on the new appliance after the upgrade process is complete.
 
-If the previous appliance used a static IP address, the previously used static IP address settings
-will be migrated from the previous appliance. If IP address configuration was provided during the
-new appliance deployment, this will be used as the temporary network configuration during the
-upgrade process until the previous appliance is shutdown. The new appliance will then assume the
-network configuration of the previous appliance. If no IP address configuration was provided during
-the new appliance deployment, DHCP provided configuration will be used until the previous appliance's
-network configuration is assumed by the new appliance.
+If the previous appliance used a static IP address, the new appliance must use temporary network
+configuration settings while the previous appliance is still running. After the upgrade process is
+completed and the previous appliance is powered down, the new appliance must then be powered down
+and the previously used IP settings should be applied through the vApp configuration. When the new
+appliance is powered on again, it will take the configured settings. A better alternative to this is
+to use DNS and update the DNS record to point to the new appliance's IP address.
 
 Before deploying the VIC appliance with a static IP address, this IP address must have a valid
 internal DNS registration. If using an FQDN for the appliance system name, this FQDN must be
@@ -397,25 +416,26 @@ Run `upgrade.sh` and provide the following information:
 - vSphere administrator username/password
 - _OPTIONAL_ External PSC FQDN
 - _OPTIONAL_ External PSC admin domain (e.g. vsphere.local, corp.local)
-- Previous appliance IP/FQDN
-- Previous appliance root password
+- vCenter TLS fingerprint
+- Previous appliance datacenter
+- Previous appliance IP
+- Previous appliance username
+- Previous appliance password
 
 The upgrade script will login to the previous appliance to check the version for a valid upgrade
-path. A basic health check of the previous appliance will be performed and the appliance
-configuration will be gathered for migration, if available. If successful, the user will
-be prompted to verify the detected previous version and confirm that the upgrade should proceed.
+path. If successful, the user will be prompted to verify the detected previous version and confirm
+that the upgrade should proceed.
 
 After confirmation, the previous appliance will be powered down. Its data disk (`/storage/data`),
 database disk (`/storage/db`), and logs disk (`/storage/log`) will be copied into the datastore
 folder of the new appliance. The blank data, database, and log disks from the new appliance will be
 deleted from the datastore. The copied disks will then be attached to the correct Virtual Device
-Node on the new appliance. Migrated network configuration will be applied to the new appliance at
-this time.
+Node on the new appliance.
 
 With the migrated disks attached, the upgrade script will upgrade components based on the component
 provided upgrade container. The component upgrade will handle schema changes, configuration updates,
 and any other internal process changes. After the component upgrade is successful, the component
-upgrade container will exit with a zero exit code. If the component upgrade fails, it will upgrade
+upgrade container will exit with a zero exit code. If the component upgrade fails, it will exit
 with a nonzero exit code. In case of failure, the upgrade will not proceed and logs should be
 gathered and provided to VMware support.
 
@@ -433,7 +453,9 @@ with a zero exit code, otherwise with a nonzero exit code.
 #### Appliance Upgrade Recovery
 
 Since the upgrade process leaves the previous appliance intact, the user may preserve the previous
-appliance as a backup.
+appliance as a backup. To retry appliance upgrade, power on the backup old appliance. Also deploy a
+new appliance of the latest version following the normal procedures. Rerun the appliance upgrade
+script from the new appliance.
 
 ### Legacy Appliance Upgrade
 
@@ -441,7 +463,7 @@ The appliance upgrade process involves deploying a new version of the appliance 
 server, powering down the Guest OS of the old appliance, moving the data disk(s) from the old
 appliance to the new appliance, and powering on the new appliance.
 
-After power on, an appliance upgrade script will be run (currently run by user via SSH) to perform
+After power on, an appliance upgrade script will be run via SSH to perform
 upgrade and data migration of each component by calling a component upgrade script for each
 component.
 
@@ -506,10 +528,6 @@ The upgrade script is located at `/etc/vmware/upgrade/upgrade.sh` and its debug 
   upgrade actions to perform. This process paired with version-awareness of component upgrade
   scripts is part of ensuring that the upgrade process does not corrupt data and improves the
   upgrade user experience.
-
-## Appliance Rollback
-
-Rollback is not currently implemented, but will be considered in the future.
 
 ## Additional Information
 

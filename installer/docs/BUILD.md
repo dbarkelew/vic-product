@@ -23,6 +23,7 @@ The build machine must have `docker` and if using `build.sh` must have `gsutil`.
 
 This is the recommended way to build the OVA.
 
+###### Versioning Components
 
 The build script pulls the desired versions of each included component into the build container.
 It accepts files in the `installer/build` directory, URLs, or revisions and automatically sets
@@ -41,6 +42,7 @@ Default values:
 --harbor <latest in harbor-builds bucket>
 --vicengine <latest in vic-engine-builds bucket>
 --vicmachineserver dev <vic-machine-server:dev tag>
+--vicui <latest in vic-ui-builds bucket>
 
 DCH Photon is pinned to 1.13 tag
 ```
@@ -52,14 +54,30 @@ Admiral tag `vic_dev` (since `--admiral` was not specified it defaults to the `v
 ./build/build.sh ova-dev --harbor harbor.tgz --vicengine vic_XXXX.tar.gz
 ```
 
-If called with the values below, `build.sh` will include the Harbor and VIC Engine versions
+If called with the values below, `build.sh` will include the Harbor, VIC Engine and VIC UI versions
 specified by their respective URLs, Admiral tag `vic_v1.1.1`, and VIC Machine Server tag `latest`.
 ```
-./build/build.sh ova-dev --admiral v1.1.1 --harbor https://example.com/harbor.tgz --vicengine https://example.com/vic_XXXX.tar.gz --vicmachineserver latest
+./build/build.sh ova-dev --admiral v1.1.1 --harbor https://example.com/harbor.tgz --vicengine https://example.com/vic_XXXX.tar.gz --vicui https://example.com/vic_ui_XXXX.tar.gz --vicmachineserver latest
 ```
 
 Note: the VIC Engine artifact used when building the OVA must be named following the `vic_*.tar.gz` format.
-This is required by the OVA in order to automatically configure the VIC Engine UI plugins correctly for installation.
+
+###### Build Script Flow
+
+The VIC Appliance Builder is made up of three bash scripts `installer/build/build.sh`, `installer/build/build-ova.sh`, and `installer/build/build-cache.sh`. These three scripts set up the necessary environment variables needed to build VIC, download and make the component dependencies, and kick off the bootable build in a docker container. 
+
+The `bootable` folder contains all the files needed to make a bootable ova. These include `build-main.sh`, which organizes the calls for `build-disks.sh`, `build-base.sh`, and `build-app.sh`. 
+
+These three scripts are self-explanatory:
+ - `build-disks.sh`: Provisions local disk space for the boot and data drives. Installs grub2 to the boot drive.
+ - `build-base.sh`: Installs all repo components, like a linux kernel and coreutils, to the base disks. Can be cached as a gzipped tar.
+ - `build-app.sh`: Performs any necessary configuration of the ova by running all script provisioners in a chroot.
+
+The `bootable` folder also contains ovf template and tdnf repos for building the ova.
+
+There are many useful arguments for `build-main.sh`, but most notable is the `-b` argument for caching the base layer for faster builds. This option can be passed throught the first `build.sh` script, like `./build/build.sh ova-dev -b bin/.vic-appliance-base.tar.gz`.
+
+The general order of execution is `build.sh` -> `build-ova.sh`  -> `build-cache.sh` -> `bootable/build-main.sh` -> `bootable/build-disks.sh` -> `bootable/build-base.sh` -> `bootable/build-app.sh` -> ova export.
 
 #### Upload
 
@@ -94,8 +112,8 @@ docker run -it --net=host -v $GOPATH/src/github.com/vmware/vic-product/installer
   --net:Network="VM Network" \
   --prop:appliance.root_pwd="password" \
   --prop:appliance.permit_root_login=True \
-  --prop:management_portal.port=8282 \
-  --prop:registry.port=443 \
+  --prop:management_portal.management_portal_port=8282 \
+  --prop:registry.registry_port=443 \
   /test-bin/$(ls -1t bin | grep "\.ova") \
   vi://$VC_USER:$VC_PASSWORD@$VC_IP/$VC_COMPUTE
 ```
@@ -117,18 +135,77 @@ as our vendor directory is checked in to git.
 
 VIC Product build is auto-triggered from the successful completion of the following CI builds:
 
-[VIC Engine](https://ci.vcna.io/vmware/vic)
+[VIC Engine](https://ci-vic.vmware.com/vmware/vic)
 
-[Admiral](https://ci.vcna.io/vmware/admiral)
+[Admiral](https://ci-vic.vmware.com/vmware/admiral)
 
-[Harbor](https://ci.vcna.io/vmware/harbor)
+[Harbor](https://ci-vic.vmware.com/vmware/harbor)
 
-There is also a separate build for [VIC UI](https://ci.vcna.io/vmware/vic-ui) which publishes the [artifact](https://console.cloud.google.com/storage/browser/vic-ui-builds) consumed by VIC Engine builds. VIC Engine publishes vic engine artifacts and vic machine server image.
+There is also a separate build for [VIC UI](https://ci-vic.vmware.com/vmware/vic-ui) which publishes the [artifact](https://console.cloud.google.com/storage/browser/vic-ui-builds) consumed by VIC Product builds. VIC Engine publishes vic engine artifacts and vic machine server image.
 Harbor build publishes harbor installer and Admiral build publishes admiral image. All these artifacts are published to Google cloud except Admiral image which is published to Docker hub.
 
-For every auto-triggered build, by default, VIC Product consumes the latest artifacts from [vic engine](https://storage.googleapis.com/vic-engine-builds) and [harbor](https://storage.googleapis.com/harbor-builds) buckets, recent `dev` tagged images for [admiral](https://hub.docker.com/r/vmware/admiral/) and [vic machine server](https://console.cloud.google.com/gcr/images/eminent-nation-87317/GLOBAL/vic-machine-server?project=eminent-nation-87317&gcrImageListsize=50) and publishes [OVA artifact](https://storage.googleapis.com/vic-product-ova-builds) after successful build and test.
+### Dependency Relationship
 
-Refer to the next section `Staging and Release` on how to build OVA with specific dependent component versions.
+The version of each dependency VIC Product consumes varies based on the type of build being performed.
+
+| Admiral                 | `master`                                                | `releases/*`                                                   |
+| -----------------------:| ------------------------------------------------------- | -------------------------------------------------------------- |
+|`pull_request`           | [image][a] tagged with `vic_dev`                        | [image][a] tagged with `vic_dev`                               |
+|`push`                   | [image][a] tagged with `vic_dev`                        | [image][a] tagged with `vic_dev`                               |
+|`tag` (containing `dev`) | [image][a] tagged with `vic_dev`                        | [image][a] tagged with `vic_dev`                               |
+|`tag` (other)            | latest [image][a] that has a tag beginning with `vic_v` | latest [image][a] that has a tag beginning with `vic_v`        |
+|`deployment`             | manually specified                                      | manually specified                                             |
+
+| Harbor                  | `master`                                                | `releases/*`                                                   |
+| -----------------------:| ------------------------------------------------------- | -------------------------------------------------------------- |
+|`pull_request`           | the build from [`harbor-builds/master.stable`][hb]      | latest build published to [`harbor-releases`][hr]              |
+|`push`                   | the build from [`harbor-builds/master.stable`][hb]      | latest build published to [`harbor-releases`][hr]              |
+|`tag` (containing `dev`) | the build from [`harbor-builds/master.stable`][hb]      | latest build published to [`harbor-releases`][hr]              |
+|`tag` (other)            | latest build published to [`harbor-releases`][hr]       | latest build published to [`harbor-releases`][hr]              |
+|`deployment`             | manually specified                                      | manually specified                                             |
+
+| Engine                  | `master`                                                | `releases/*`                                                   |
+| -----------------------:| ------------------------------------------------------- | -------------------------------------------------------------- |
+|`pull_request`           | latest build published to [`vic-engine-builds`][vb]     | latest build published to [`vic-engine-builds/releases/*`][vb] |
+|`push`                   | latest build published to [`vic-engine-builds`][vb]     | latest build published to [`vic-engine-builds/releases/*`][vb] |
+|`tag` (containing `dev`) | latest build published to [`vic-engine-builds`][vb]     | latest build published to [`vic-engine-builds/releases/*`][vb] |
+|`tag` (other)            | latest build published to [`vic-engine-releases`][vr]   | latest build published to [`vic-engine-releases`][vr]          |
+|`deployment`             | manually specified                                      | manually specified                                             |
+
+| vic-ui                  | `master`                                                | `releases/*`                                                   |
+| -----------------------:| ------------------------------------------------------- | -------------------------------------------------------------- |
+|`pull_request`           | latest build published to [`vic-ui-builds`][ub]         | latest build published to [`vic-ui-builds/releases/*`][ub]     |
+|`push`                   | latest build published to [`vic-ui-builds`][ub]         | latest build published to [`vic-ui-builds/releases/*`][ub]     |
+|`tag` (containing `dev`) | latest build published to [`vic-ui-builds`][ub]         | latest build published to [`vic-ui-builds/releases/*`][ub]     |
+|`tag` (other)            | latest build published to [`vic-ui-releases`][ur]       | latest build published to [`vic-ui-releases`][ur]              |
+|`deployment`             | manually specified                                      | manually specified                                             |
+
+| `vic-machine-server`    | `master`                                                | `releases/*`                                                   |
+| -----------------------:| ------------------------------------------------------- | -------------------------------------------------------------- |
+|`pull_request`           | [image][vms] tagged with `dev`                          | latest [image][vms] tagged with the release's version number   |
+|`push`                   | [image][vms] tagged with `dev`                          | latest [image][vms] tagged with the release's version number   |
+|`tag` (containing `dev`) | [image][vms] tagged with `dev`                          | latest [image][vms] tagged with the release's version number   |
+|`tag` (other)            | latest [image][vms] tagged with a version number        | latest [image][vms] tagged with a version number               |
+|`deployment`             | manually specified                                      | manually specified                                             |
+
+[a]:https://hub.docker.com/r/vmware/admiral/
+[hb]:https://storage.googleapis.com/harbor-builds
+[hr]:https://storage.googleapis.com/harbor-releases
+[vb]:https://storage.googleapis.com/vic-engine-builds
+[vr]:https://storage.googleapis.com/vic-engine-releases
+[ub]:https://storage.googleapis.com/vic-ui-builds
+[ur]:https://storage.googleapis.com/vic-ui-releases
+[vms]:https://console.cloud.google.com/gcr/images/eminent-nation-87317/GLOBAL/vic-machine-server?project=eminent-nation-87317&gcrImageListsize=50
+
+The OVA artifact is published to:
+ * [`vic-product-ova-builds`](https://storage.googleapis.com/vic-product-ova-builds) after successful build and test following `push` to `master`
+ * [`vic-product-ova-builds/releases/*`](https://storage.googleapis.com/vic-product-ova-builds) after successful build and test following `push` to `releases/*`
+ * [`vic-product-ova-builds`](https://storage.googleapis.com/vic-product-ova-builds) after successful build and test following creation of a `tag`
+ * [`vic-product-ova-builds`](https://storage.googleapis.com/vic-product-ova-builds) after successful build and test following `deployment` to `staging`
+ * [`vic-product-ova-releases`](https://storage.googleapis.com/vic-product-ova-releases) after successful build and test following `deployment` to `release`
+ * [`vic-product-failed-builds`](https://storage.googleapis.com/vic-product-failed-builds) after a failure building or testing
+
+Refer to the next section `Staging and Release` on how to build OVA with specific dependent component versions ("manually specified").
 
 ## Staging and Release
 
@@ -137,22 +214,37 @@ Please note that you cannot trigger new CI builds manually, but have to promote 
 
 Make sure `DRONE_SERVER` and `DRONE_TOKEN` environment variables are set before executing these commands.
 
-To promote existing successful CI build to staging...
+To promote existing successful CI build to staging (`vic-product-ova-builds` bucket), `drone deploy` to `staging` using the command output at the end of the `unified-ova-build` step of the `tag` build. This output will look like:
 
-``
-$ drone deploy --param VICENGINE=<vic_engine_version> --param VIC_MACHINE_SERVER=<vic_machine_server> --param ADMIRAL=<admiral_tag> --param HARBOR=<harbor_version> vmware/vic-product <ci_build_number_to_promote> staging
-``
+```
+drone deploy --param VICENGINE=<vic_engine_version> \
+             --param VIC_MACHINE_SERVER=<vic_machine_server> \
+             --param ADMIRAL=<admiral_tag> \
+             --param HARBOR=<harbor_version> \
+             --param VICUI=<vic_ui_version> \
+             vmware/vic-product <ci_build_number_to_promote> staging
+```
 
-To promote existing successful CI build to release...
+To promote existing successful CI build to release (`vic-product-ova-releases` bucket), `drone deploy` to `release` using the command output at the end of the `unified-ova-build` step of the `staging` build. This output will look like:
 
-``
-$ drone deploy --param VICENGINE=<vic_engine_version> --param VIC_MACHINE_SERVER=<vic_machine_server> --param ADMIRAL=<admiral_tag> --param HARBOR=<harbor_version> vmware/vic-product <ci_build_number_to_promote> release
-``
+```
+drone deploy --param VICENGINE=<vic_engine_version> \
+             --param VIC_MACHINE_SERVER=<vic_machine_server> \
+             --param ADMIRAL=<admiral_tag> \
+             --param HARBOR=<harbor_version> \
+             --param VICUI=<vic_ui_version> \
+             vmware/vic-product <ci_build_number_to_promote> release
+```
 
-`vic_engine_version` and `harbor_version` can be specified as a URL or a file in `cwd`, eg. 'https://storage.googleapis.com/vic-engine-releases/vic_1.2.1.tar.gz'
+Example:
 
-`admiral_tag` and `vic_machine_server` should be specified as docker image revision tag, eg. 'latest'
+```
+drone deploy --param VICENGINE=https://storage.googleapis.com/vic-engine-releases/vic_v1.4.0.tar.gz \
+             --param VIC_MACHINE_SERVER=latest \
+             --param ADMIRAL=v1.4.0 \
+             --param HARBOR=https://storage.googleapis.com/harbor-releases/harbor-offline-installer-v1.5.0.tgz \
+             --param VICUI=https://storage.googleapis.com/vic-ui-releases/vic_ui_v1.4.0.tar.gz \
+             vmware/vic-product <ci_build_number_to_promote> release
+```
 
-`ci_build_number_to_promote` is the drone build number which will be promoted
-
-## Troubleshooting
+All variables are populated with the values which were used by the build being promoted to the next step of the process. This provides you an opportunity to review the included components and ensures that new versions of components are not inadvertently introduced between steps of this process due to automatic component selection logic.

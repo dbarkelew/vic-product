@@ -1,21 +1,18 @@
 # Upgrade Virtual Container Hosts #
 
-You upgrade virtual container hosts (VCHs) by downloading a new version of vSphere Integrated Containers Engine and running the `vic-machine upgrade` command.
+You upgrade virtual container hosts (VCHs) by downloading a new version of vSphere Integrated Containers Engine and running the `vic-machine upgrade` command. You can upgrade VCHs from 1.3.x and 1.4.x to 1.5.x, or from 1.5.x to a later 1.5.y update release.
 
-You can use `vic-machine upgrade` to upgrade VCHs to newer versions. You can run `vic-machine upgrade` on VCHs that are either running or powered off. When you upgrade a running VCH, the VCH goes temporarily offline, but container workloads continue as normal during the upgrade process. Upgrading a VCH does not affect any mapped container networks that you defined by setting the `vic-machine create --container-network` option. The following operations are not available during upgrade:
+You use `vic-machine upgrade` to upgrade VCHs to newer versions. You can run `vic-machine upgrade` on VCHs that are either running or powered off. When you upgrade a running VCH, the VCH goes temporarily offline, but container workloads continue as normal during the upgrade process. Upgrading a VCH does not affect any mapped container networks that you defined by setting the `vic-machine create --container-network` option. The following operations are not available during upgrade:
 
 - You cannot access container logs
 - You cannot attach to a container
-- NAT based port forwarding is unavailable
+- NAT based port forwarding is unavailable. These are ports that containers expose with the `docker create -p` command when connected to the default bridge network and made available on the public interface of the VCH endpoint VM via network address translation (NAT). Containers that are on container networks are not affected.
 
-**IMPORTANT**: 
-
-- Upgrading a VCH does not upgrade any existing container VMs that the VCH manages. For container VMs to boot from the latest version of `bootstrap.iso`, container developers must recreate them.
-- By default, previous versions of vSphere Integrated Containers deployed VCHs as vApps, unless you explicitly deployed them as resource pools by using the `vic-machine create --use-rp` option. This version of vSphere Integrated Containers always deploys VCHs as resource pools, not as vApps. When you upgrade VCHs that run as vApps, these VCHs remain vApps after the upgrade. Any new container VMs are deployed in the existing vApp.
+**IMPORTANT**: Upgrading a VCH does not upgrade any existing container VMs that the VCH manages. For container VMs to boot from the latest version of `bootstrap.iso`, container developers must recreate them.
 
 For descriptions of the options that `vic-machine upgrade` includes in addition to the [Common `vic-machine` Options](common_vic_options.md) , see [VCH Upgrade Options](upgrade_vch_options.md).
 
-**Prerequisites**
+## Prerequisites
 
 - You deployed one or more VCHs with an older version of `vic-machine`.
 - You downloaded a new version of the vSphere Integrated Containers Engine bundle.
@@ -24,7 +21,7 @@ For descriptions of the options that `vic-machine upgrade` includes in addition 
 - Obtain the vCenter Server or ESXi host certificate thumbprint. For information about how to obtain the certificate thumbprint, see [Obtain vSphere Certificate Thumbprints](obtain_thumbprint.md).
 
 
-**Procedure**
+## Procedure
 
 1. On the system on which you run `vic-machine`, navigate to the directory that contains the new version of the `vic-machine` utility.
 2. Run the `vic-machine upgrade` command. 
@@ -39,37 +36,46 @@ For descriptions of the options that `vic-machine upgrade` includes in addition 
      Use upper-case letters and colon delimitation in the thumbprint. Do not use space delimitation.
 
      <pre>$ vic-machine-<i>operating_system</i> upgrade
---target <i>vcenter_server_username</i>:<i>password</i>@<i>vcenter_server_address</i>
---thumbprint <i>certificate_thumbprint</i>
---id <i>vch_id</i></pre>
+  --target <i>vcenter_server_address</i>
+  --user Administrator@vsphere.local
+  --password <i>password</i>
+  --thumbprint <i>certificate_thumbprint</i>
+  --id <i>vch_id</i></pre>
 
 3. If the upgrade operation fails with error messages, run `vic-machine upgrade` again, specifying a timeout longer than 3 minutes in the `--timeout` option.
 
      <pre>$ vic-machine-<i>operating_system</i> upgrade
---target <i>vcenter_server_username</i>:<i>password</i>@<i>vcenter_server_address</i>
---thumbprint <i>certificate_thumbprint</i>
---id <i>vch_id</i>
---timeout 5m0s</pre>
+  --target <i>vcenter_server_address</i>
+  --user Administrator@vsphere.local
+  --password <i>password</i>
+  --thumbprint <i>certificate_thumbprint</i>
+  --id <i>vch_id</i>
+  --timeout 5m0s</pre>
 
 3. If the upgrade operation continues to fail with error messages, run `vic-machine upgrade` again with the `--force` option.
 
     **CAUTION**: Specifying the `--force` option bypasses safety checks, including certificate thumbprint verification. Using `--force` in this way can expose VCHs to the risk of man-in-the-middle attacks, in which attackers can learn vSphere credentials. Using `--force` can result in unexpected deployment topologies that would otherwise fail with an error. Do not use `--force` in production environments.  
 
      <pre>$ vic-machine-<i>operating_system</i> upgrade
---target <i>vcenter_server_username</i>:<i>password</i>@<i>vcenter_server_address</i>
---id <i>vch_id</i>
---timeout 5m0s
---force</pre>
+  --target <i>vcenter_server_address</i>
+  --user Administrator@vsphere.local
+  --password <i>password</i>
+  --id <i>vch_id</i>
+  --timeout 5m0s
+  --force</pre>
 
 4. (Optional) To roll back an upgraded VCH to the previous version, or to revert a VCH that failed to upgrade, run `vic-machine upgrade` again with the `--rollback` option.
 
      <pre>$ vic-machine-<i>operating_system</i> upgrade
---target <i>vcenter_server_username</i>:<i>password</i>@<i>vcenter_server_address</i>
---id <i>vch_id</i>
---rollback</pre>
+  --target <i>vcenter_server_address</i>
+  --user Administrator@vsphere.local
+  --password <i>password</i>
+  --id <i>vch_id</i>
+  --rollback</pre>
 
+	**IMPORTANT**: Since `vic-machine configure` also takes a snapshot of the VCH, when you attempt to rollback a VCH that has been upgraded with `vic-machine upgrade` and has undergone a configuration change with `vic-machine configure`, you must run `vic-machine configure --rollback` to roll back the configuration to the previous settings before running `vic-machine upgrade --rollback` to roll the VCH back to its previous version.
 
-**Result**
+## Result
 
 During the upgrade process, `vic-machine upgrade` performs the following operations:
 
@@ -81,10 +87,3 @@ During the upgrade process, `vic-machine upgrade` performs the following operati
 - After you upgrade a VCH, any new container VMs will boot from the new version of the `bootstrap.iso` file.
 - If the upgrade times out while waiting for the VCH service to start, the upgrade fails and rolls back to the previous version.
 - If the upgrade fails with the error `another upgrade/configure operation is in progress`, a previous attempt at upgrading the VCH might have been interrupted without rolling back. In this case, run `vic-machine configure` with the `--reset-progress` option. For information about `vic-machine configure --reset-progress`, see [Reset Upgrade or Configuration Progress](configure_vch.md#resetprogress).
-
-**What to Do Next**
-
-Upgrade the HTML5 vSphere Client plug-in.
-
-- [Upgrade the HTML5 vSphere Client Plug-In on vCenter Server for Windows](upgrade_h5_plugin_windows.md)
-- [Upgrade the HTML5 vSphere Client Plug-In on a vCenter Server Appliance](upgrade_h5_plugin_vcsa.md)

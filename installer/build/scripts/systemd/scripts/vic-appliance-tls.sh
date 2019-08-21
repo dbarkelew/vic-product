@@ -31,11 +31,21 @@ key="${cert_dir}/server.key"
 flag="${cert_dir}/cert_gen_type"
 jks="${cert_dir}/trustedcertificates.jks"
 
+# From vic-appliance-environment
+tls_cert="${APPLIANCE_TLS_CERT}"
+tls_private_key="${APPLIANCE_TLS_PRIVATE_KEY}"
+tls_ca_cert="${APPLIANCE_TLS_CA_CERT}"
+
 # Format cert file
 function formatCert {
   content=$1
   file=$2
-  echo "$content" | sed -r 's/(-{5}BEGIN [A-Z ]+-{5})/&\n/g; s/(-{5}END [A-Z ]+-{5})/\n&\n/g' | sed -r 's/.{64}/&\n/g; /^\s*$/d' | sed -r '/^$/d' > "$file"
+  # transfer the one line cert content into cert file pattern
+  # The cert pattern from HTML5 and Flex are different
+  # Flex transfers the cert content in one line with no space added
+  # HTML5 tansfers the cert content in one line with one space added
+  # also consider the cert chain scenarios
+  echo "$content" | sed -r 's/(-{5}BEGIN [A-Z ]+-{5})/&\n/g; s/(-{5}END [A-Z ]+-{5})/\n&\n/g' | sed -r 's/^ -/-/g' | sed -r '/(-{5}BEGIN [A-Z ]+-{5})/{n; s/ //g;}' | sed -r 's/.{64}/&\n/g; /^\s*$/d' | sed -r '/^$/d' > "$file"
 }
 
 # Check if private key is valid
@@ -62,7 +72,7 @@ function genCert {
   if [ ! -e $ca_cert ] || [ ! -e $ca_key ]
   then
     openssl req -newkey rsa:4096 -nodes -sha256 -keyout $ca_key \
-      -x509 -days 1095 -out $ca_cert -subj \
+      -x509 -days 825 -out $ca_cert -subj \
       "/C=US/ST=California/L=Palo Alto/O=VMware, Inc./OU=Containers on vSphere/CN=Self-signed by VMware, Inc."
   fi
   openssl req -newkey rsa:4096 -nodes -sha256 -keyout $key \
@@ -77,7 +87,7 @@ function genCert {
   echo "Add subjectAltName $san to certificate"
   echo "$san" > $ext
 
-  openssl x509 -req -days 1095 -in $csr -CA $ca_cert -CAkey $ca_key -CAcreateserial -extfile $ext -out $cert
+  openssl x509 -req -days 825 -in $csr -CA $ca_cert -CAkey $ca_key -CAcreateserial -extfile $ext -out $cert
 
   echo "Creating certificate chain for $cert"
   cat $ca_cert >> $cert
@@ -89,22 +99,23 @@ function genCert {
 }
 
 function secure {
-  if [ -n "${TLS_PRIVATE_KEY}" ] && [ "${TLS_PRIVATE_KEY}" == "*ENCRYPTED*" ]; then
+  if [ -n "$tls_private_key" ] && [ "$tls_private_key" == "*ENCRYPTED*" ]; then
     echo "Private key is encrypted - will generate a self-signed certificate"
     genCert
     return
   fi
 
-  # Provided TLS values from environment file
-  if [ -n "${TLS_CERT}" ] && [ -n "${TLS_PRIVATE_KEY}" ] && [ -n "${TLS_CA_CERT}" ]; then
+  if [ -n "$tls_cert" ] && [ -n "$tls_private_key" ] && [ -n "$tls_ca_cert" ]; then
     echo "TLS certificate, private key, and CA certificate are set, using customized certificate"
-    formatCert "${TLS_CERT}" $cert
-    formatCert "${TLS_PRIVATE_KEY}" $key
-    formatCert "${TLS_CA_CERT}" $ca_cert
+    formatCert "$tls_cert" $cert
+    formatCert "$tls_private_key" $key
+    formatCert "$tls_ca_cert" $ca_cert
+
+    ensurePKCS8Format
 
     echo "customized" > $flag
 
-    echo "creating java keystore with provided cert for xenon"
+    echo "creating java keystore with user provided cert"
     createKeystore $cert
     return
   fi
@@ -163,7 +174,12 @@ function ensurePKCS8Format() {
     mv $key.tmp $key
     return
   fi
+  # Override value from environment file
+  tls_private_key="$(cat $key)"
   echo "Converted $key to PKCS8"
+
+  # Cleanup
+  rm -f $key.tmp
 }
 
 # Warn if expiration in less than 60 days
@@ -183,7 +199,6 @@ chown -R "${APPLIANCE_SERVICE_UID}":"${APPLIANCE_SERVICE_UID}" ${cert_dir}
 
 # Init certs
 secure
-ensurePKCS8Format
 checkCertExpiration
 
 # File permissions - components can use shared TLS cert

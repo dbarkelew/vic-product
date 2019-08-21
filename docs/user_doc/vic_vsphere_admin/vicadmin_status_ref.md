@@ -11,7 +11,7 @@ VCH Admin checks the status of the processes that the VCH runs:
 - The port layer server, that presents an API of low-level container primitive operations, and implements those container operations via the vSphere APIs.
 - VCH Admin server, that runs the VCH Admin portal. 
 - The vSphere Integrated Containers Engine initialization service and watchdog service for the other components. 
-- The Docker engine server, that exposes the Docker API and semantics, translating those composite operations into port layer primitives.
+- The Docker Engine server, that exposes the Docker API and semantics, translating those composite operations into port layer primitives.
 
 ### Error ###
 
@@ -97,8 +97,8 @@ VCH Admin checks that the ESXi hosts on which you deploy VCHs have the appropria
 
 - If the license does not meet the requirements:
   - If the VCH is running on an ESXi host that is not managed by vCenter Server, replace the ESXi host license with a valid vSphere Enterprise license.
-  - If the VCH is running on a standalone ESXi host in vCenter Server, replace the ESXi host license with a valid vSphere Enterprise Plus license.
-  - If the VCH is running in a vCenter Server cluster, check that all of the hosts in the cluster have a valid vSphere Enterprise Plus license, and replace any licenses that have been removed, downgraded, or have expired.
+  - If the VCH is running on a standalone ESXi host in vCenter Server, replace the ESXi host license with a valid vSphere Enterprise Plus  or vSphere Remote Office Branch Office (ROBO) Advanced license.
+  - If the VCH is running in a vCenter Server cluster, check that all of the hosts in the cluster have a valid vSphere Enterprise Plus or vSphere ROBO Advanced license, and replace any licenses that have been removed, downgraded, or have expired.
 - If the **License** status is unavailable: 
   - Check the **VCH Admin Server** log for references to network issues. 
   - Use the vSphere Web Client to remediate the management network issues as required.

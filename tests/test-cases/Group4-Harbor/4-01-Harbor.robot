@@ -15,7 +15,7 @@
 *** Settings ***
 Documentation  Test 4-01 Harbor
 Resource  ../../resources/Util.robot
-Test Timeout  5 minutes
+Test Timeout  20 minutes
 Test Setup  Run Keyword  Setup Base State
 Test Teardown  Close All Browsers
 
@@ -30,12 +30,7 @@ Setup Base State
     Open Firefox Browser
     Navigate To VIC UI Home Page
     Login On Single Sign-On Page
-
-Setup Docker Daemon
-    Setup Base State
-    ${handle}  ${docker_daemon_pid}=  Start Docker Daemon Locally
-    Set Test Variable  ${handle}
-    Set Test Variable  ${docker_daemon_pid}
+    Verify VIC UI Header Display
 
 Teardown VCH And Docker Daemon
     [Arguments]  ${vch-name}  ${handle}  ${docker_daemon_pid}
@@ -53,7 +48,7 @@ Verify default harbor registry is displayed
     Unselect Registries Page Iframe
 
 Push an image to harbor and create a container
-    [Setup]  Setup Docker Daemon
+    Setup Docker Daemon
     # verify push image to harbor
     ${harbor-image-name}=  Set Variable  %{OVA_IP}/${DEFAULT_HARBOR_PROJECT}/${sample-image-name}
     ${harbor-image-tagged}=  Set Variable  ${harbor-image-name}:${sample-image-tag}
@@ -61,11 +56,11 @@ Push an image to harbor and create a container
     Push Docker Image To Harbor Registry  %{OVA_IP}  ${harbor-image-tagged}
     Navigate To VIC UI Home Page
     Navigate To Project Repositories Page
-    Wait Until Keyword Succeeds  3x  2s  Verify Row Value In Project Repositories Table  ${harbor-image-name}
+    Wait Until Keyword Succeeds  3x  2s  Verify Row Value In Project Repositories Grid  ${harbor-image-name}
     # create container from harbor image
-    Download VIC Engine If Not Already
+    Download VIC Engine If Not Already  %{OVA_IP}
     Download CA Cert  %{OVA_IP}
-    ${vch-name}=  Install VCH  additional-args=--registry-ca=./ca.crt
+    ${vch-name}=  Install VCH  additional-args=--registry-ca=./ca.crt  certs=${false}
     Add New Container Host And Verify Card  ${vch-name}
     Navigate To Containers Page
     Select Containers Page Iframe

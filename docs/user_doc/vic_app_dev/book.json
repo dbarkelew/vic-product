@@ -1,7 +1,8 @@
 {
 
-	"title": "Develop Container Applications with VMware vSphere Integrated Containers 1.3",
+	"title": "Develop Container Applications with VMware vSphere Integrated Containers 1.5",
         "gitbook": "3.x.x",
+        "plugins": ["noembed"],
 	"pdf": {
 		"headerTemplate": "_TITLE_",
 		"footerTemplate": "_PAGENUM_",

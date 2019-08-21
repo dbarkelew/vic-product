@@ -2,7 +2,7 @@
 
 You delete virtual container hosts (VCHs) by using the `vic-machine delete` command. 
 
-You can also delete VCHs by using the vSphere Integrated Containers plug-in for the HTML5 vSphere Client. For information about using the plug-in, see [View All VCH and Container Information in the HTML5 vSphere Client](access_h5_ui.md).
+You can also delete VCHs by using the vSphere Integrated Containers plug-in for the HTML5 vSphere Client. For information about using the plug-in, see [View vSphere Integrated Containers Information in the HTML5 vSphere Client](access_h5_ui.md).
 
 The `vic-machine delete` includes one option in addition to the [Common `vic-machine` Options](common_vic_options.md), `--force`.
 
@@ -13,38 +13,46 @@ The `vic-machine delete` includes one option in addition to the [Common `vic-mac
 
   - If you do not specify `--force` and the VCH contains running container VMs, the deletion fails with a warning. 
   - If you do not specify `--force` and the VCH has volume stores, the deletion of the VCH succeeds without deleting the volume stores. The list of volume stores appears in the `vic-machine delete` success message for reference and optional manual removal.
-- If your vSphere environment uses untrusted, self-signed certificates, you must specify the thumbprint of the vCenter Server instance or ESXi host in the `--thumbprint` option. For information about how to obtain the certificate thumbprint, see [Obtain vSphere Certificate Thumbprints](obtain_thumbprint.md). 
+- If your vSphere environment uses untrusted, self-signed certificates, you must specify the thumbprint of the vCenter Server instance or ESXi host in the `--thumbprint` option. For information about how to obtain the certificate thumbprint, see [Obtain vSphere Certificate Thumbprints](obtain_thumbprint.md). Use upper-case letters and colon delimitation in the thumbprint. Do not use space delimitation.
 
-     Use upper-case letters and colon delimitation in the thumbprint. Do not use space delimitation.
+**NOTES**:
 
 When you delete a VCH that uses TLS authentication with trusted Certificate Authority (CA) certificates, `vic-machine delete` does not delete the certificates or the certificate folder, even if you specify the `--force` option. Because `vic-machine delete` does not delete the certificates, you can delete VCHs and create new ones that reuse the same certificates. This is useful if you have already distributed the client certificates for VCHs that you need to recreate.
 
 The `vic-machine delete` command does not modify the firewall on ESXi hosts. If you do not need to deploy or run further VCHs on the ESXi host or cluster after you have deleted VCHs, run `vic-machine update firewall --deny` to close port 2377 on the host or hosts. 
 
-## Example ##
+If you deployed the VCH with the `vic-machine create --affinity-vm-group` option, `vic-machine delete` removes the VM affinity group that was created during deployment.
+
+## Examples ##
 
 The following example includes the options required to remove a VCH from a simple vCenter Server environment. 
 
-  <pre>$ vic-machine-<i>operating_system</i> delete
---target <i>vcenter_server_username</i>:<i>password</i>@<i>vcenter_server_address</i>
---thumbprint <i>certificate_thumbprint</i>
---name <i>vch_name</i></pre>
+<pre>$ vic-machine-<i>operating_system</i> delete
+  --target <i>vcenter_server_address</i>
+  --user Administrator@vsphere.local
+  --password <i>password</i>
+  --thumbprint <i>certificate_thumbprint</i>
+  --name <i>vch_name</i></pre>
 
 If the delete operation fails with a message about container VMs that are powered on, run `docker stop` on the containers and run `vic-machine delete` again. Alternatively, run `vic-machine delete` with the `--force` option.
 
 **CAUTION** Running `vic-machine delete` with the `--force` option removes all running container VMs that the VCH manages, as well as any associated volumes and volume stores. It is not recommended to use the `--force` option to remove running containers.
 
 <pre>$ vic-machine-<i>operating_system</i> delete
---target <i>vcenter_server_username</i>:<i>password</i>@<i>vcenter_server_address</i>
---thumbprint <i>certificate_thumbprint</i>
---name <i>vch_name</i>
---force</pre>
+  --target <i>vcenter_server_address</i>
+  --user Administrator@vsphere.local
+  --password <i>password</i>
+  --thumbprint <i>certificate_thumbprint</i>
+  --name <i>vch_name</i>
+  --force</pre>
 
 If your vSphere environment uses untrusted, self-signed certificates, running `vic-machine delete` with the `--force` option allows you to omit the `--thumbprint` option.  
 
 <pre>$ vic-machine-<i>operating_system</i> delete
---target <i>vcenter_server_username</i>:<i>password</i>@<i>vcenter_server_address</i>
---name <i>vch_name</i></i>
---force</pre>
+  --target <i>vcenter_server_address</i>
+  --user Administrator@vsphere.local
+  --password <i>password</i>
+  --name <i>vch_name</i></i>
+  --force</pre>
 
 **CAUTION**: Using `--force` in this way exposes VCHs to the risk of man-in-the-middle attacks, in which attackers can learn vSphere credentials. Using `--force` also bypasses other checks, and can result in data loss.

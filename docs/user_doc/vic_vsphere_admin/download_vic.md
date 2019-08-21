@@ -6,7 +6,7 @@ You can download different versions of vSphere Integrated Containers, that have 
 
 To obtain the latest official release of vSphere Integrated Containers, go to the [official vSphere Integrated Containers downloads page on vmware.com](http://www.vmware.com/go/download-vic) and download the OVA installer. The OVA installer allows you to deploy all of the vSphere Integrated Containers components.
 
-Full support of vSphere Integrated Containers requires the vSphere Enterprise Plus license. To make a support request, contact [VMware Global Support](https://www.vmware.com/support/product-support-centers.html). 
+vSphere Integrated Containers depends on certain features that are available in the vSphere Enterprise Plus or vSphere Remote Office Branch Office (ROBO) Advanced licenses. To make a support request, contact [VMware Global Support](https://www.vmware.com/support/product-support-centers.html). 
 
 ## Open Source Builds of vSphere Integrated Containers ##
 
@@ -27,3 +27,8 @@ You can obtain open source builds of vSphere Integrated Containers Engine, vSphe
 
 - You can obtain community support for open source builds by [reporting bugs and creating issues on Github](https://github.com/vmware/vic-product#contributing-to-vsphere-integrated-containers). 
 - For general questions, visit the [vSphere Integrated Containers channel on Slack.com](https://vmwarecode.slack.com/messages/vic-product). If you do not have an @vmware.com or @emc.com email address, sign up at https://code.vmware.com/home to get an invitation.
+
+
+## What to Do Next
+
+[Deploy the vSphere Integrated Containers Appliance](deploy_vic_appliance.md)

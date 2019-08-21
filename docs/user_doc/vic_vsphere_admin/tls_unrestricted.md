@@ -2,16 +2,6 @@
 
 To deploy a virtual container host (VCH) that does not restrict access to the Docker API but still encrypts communication between clients and the VCH, you can disable client certificate verification. If you use `vic-machine` to deploy VCHs, you can also completely disable TLS authentication and encryption on both the client and server sides.
 
-- [Options](#options)
-  - [Disable Client Certificate Verification](#no-tlsverify) 
-  - [Disable Secure Access](#no-tls)
-- [Examples](#examples)
-  - [Automatically Generate a Server Certificate and Disable Client Certificate Verification](#auto-notlsverify)
-  - [Use Custom Server Certificates and Disable Client Certificate Verification](#custom_notlsverify)
-  - [Automatically Generate a Generic Server Certificate and Disable Client Certificate Verification](#generic_no-tlsverify)
-  - [Disable Secure Access](#example_no-tls)
-- [What to Do Next](#whatnext)
-
 ## Options <a id="options"></a>
 
 The following sections each correspond to an entry in the Security page of the Create Virtual Container Host wizard. Each section also includes a description of the corresponding `vic-machine create` option. 
@@ -31,8 +21,6 @@ For example, you can access information about a VCH that uses a server certifica
 #### Create VCH Wizard
 
 To disable client certificate verification, set the **Client Certificates** switch to the gray OFF position. You must still either upload a custom server certificate or configure an automatically generated server certificate.
-
-**NOTE**: In vSphere Integrated Containers 1.3.0 the client certificate options appear at the bottom of the Security page of the Create Virtual Container Host wizard. From version 1.3.1 onwards, they appear at the top of the page.
 
 #### vic-machine Option 
 
@@ -100,13 +88,14 @@ This example deploys a VCH with the following security configuration.
 
 ### `vic-machine` Command
 
-This example `vic-machine create` command deploys a VCH that specifies `--no-tlsverify` to disable client authentication but that configures the automatically generated server certificate.
+This example `vic-machine create` command specifies `--no-tlsverify` to disable client authentication, but configures the automatically generated server certificate by specifying `--tls-cname`, `--tls-cert-path`, `--organization`, and `--certificate-key-size`.
 
 <pre>vic-machine-<i>operating_system</i> create
 --target 'Administrator@vsphere.local':<i>password</i>@<i>vcenter_server_address</i>/dc1
 --compute-resource cluster1
 --image-store datastore1
 --bridge-network vch1-bridge
+--public-network vic-public
 --name vch1
 --thumbprint <i>certificate_thumbprint</i>
 --tls-cname *.example.org
@@ -149,6 +138,7 @@ This example `vic-machine create` command provides the paths relative to the cur
 --compute-resource cluster1
 --image-store datastore1
 --bridge-network vch1-bridge
+--public-network vic-public
 --name vch1
 --thumbprint <i>certificate_thumbprint</i>
 --tls-server-cert ../some/relative/path/<i>certificate_file</i>.pem
@@ -188,6 +178,7 @@ This example deploys a VCH with the following configuration:
 --compute-resource cluster1
 --image-store datastore1
 --bridge-network vch1-bridge
+--public-network vic-public
 --name vch1
 --thumbprint <i>certificate_thumbprint</i>
 --no-tlsverify
@@ -219,6 +210,7 @@ This example deploys a VCH that specifies `--no-tls` to disable client and serve
 --compute-resource cluster1
 --image-store datastore1
 --bridge-network vch1-bridge
+--public-network vic-public
 --name vch1
 --thumbprint <i>certificate_thumbprint</i>
 --no-tls

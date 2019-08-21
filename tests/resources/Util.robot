@@ -20,11 +20,15 @@ Library  requests
 Library  Process
 Library  SSHLibrary  5 minute
 Library  DateTime
+Resource  Cert-Util.robot
 Resource  OVA-Util.robot
 Resource  VC-Util.robot
 Resource  VCH-Util.robot
 Resource  UI-Util.robot
 Resource  Docker-Util.robot
+Resource  Nimbus-Util.robot
+Resource  VM-Util.robot
+Resource  VIC-UI-Util.robot
 Library  Selenium2Library  timeout=30  implicit_wait=15  run_on_failure=Capture Page Screenshot  screenshot_root_directory=test-screenshots
 # UI page object utils
 Resource  page-objects/Getting-Started-Page-Util.robot
@@ -41,6 +45,11 @@ Resource  page-objects/Provision-Container-Page-Util.robot
 Resource  page-objects/Right-Context-Panel-Util.robot
 Resource  page-objects/Registries-Page-Util.robot
 Resource  page-objects/Project-Repositories-Page-Util.robot
+Resource  page-objects/Vsphere-VCH-Plugin-Util.robot
+Resource  page-objects/Vsphere-UI-Util.robot
+
+*** Variables ***
+${local_ova_file}=  vic-*.ova
 
 *** Keywords ***
 Global Environment Setup
@@ -52,7 +61,7 @@ Global Environment Setup
     Environment Variable Should Be Set  TEST_PASSWORD
     ${status}  ${message}=  Run Keyword And Ignore Error  Environment Variable Should Be Set  PUBLIC_NETWORK
     Run Keyword If  '${status}' == 'FAIL'  Set Environment Variable  PUBLIC_NETWORK  'vm-network'
-    ${status}  ${message}=  Run Keyword And Ignore Error  Environment Variable Should Be Set  PUBLIC_NETWORK
+    ${status}  ${message}=  Run Keyword And Ignore Error  Environment Variable Should Be Set  BRIDGE_NETWORK
     Run Keyword If  '${status}' == 'FAIL'  Set Environment Variable  BRIDGE_NETWORK  'bridge'
     ${status}  ${message}=  Run Keyword And Ignore Error  Environment Variable Should Be Set  TEST_DATASTORE
     Run Keyword If  '${status}' == 'FAIL'  Set Environment Variable  TEST_DATASTORE  datastore1
@@ -94,6 +103,7 @@ Set Browser Variables
     # UI tests variables
     Set Global Variable  ${FIREFOX_BROWSER}  firefox
     Set Global Variable  ${GRID_URL}  http://selenium-grid-hub:4444/wd/hub
+    Set Global Variable  ${EXPLICIT_WAIT_FOR_VCSSO_PAGE}  600
     Set Global Variable  ${EXPLICIT_WAIT}  30
     Set Global Variable  ${EXTRA_EXPLICIT_WAIT}  60
     Set Global Variable  ${PRIMARY_PORT}  8282
@@ -106,6 +116,8 @@ Set Browser Variables
     Set Global Variable  ${HARBOR_URL}  ${IP_URL}:${HARBOR_PORT}
     Set Global Variable  ${DEFAULT_HARBOR_NAME}  default-vic-registry
     Set Global Variable  ${DEFAULT_HARBOR_PROJECT}  default-project
+    Set Global Variable  ${VC_URL}  https://%{TEST_URL}/ui/
+    Set Global Variable  ${VC_SHORTCUTS_PAGE_URL}  ${VC_URL}#?extensionId=vsphere.core.controlcenter.domainView
 
 Run command and Return output
     [Arguments]  ${command}
@@ -117,5 +129,17 @@ Run command and Return output
 Check service running
     [Arguments]  ${service-name}
     Log To Console  Checking status of ${service-name}...
-    ${out}=  Execute Command  systemctl status -l ${service-name}
+    ${out}=      Execute Command  systemctl status -l ${service-name}
+    ${journal}=  Execute Command  journalctl -u ${service-name} --no-pager
+    Log  ${out}
+    Log  ${journal}
     Should Contain  ${out}  Active: active (running)
+
+Execute Command And Return Output
+    [Arguments]  ${command}
+    ${output}  ${rc}=  Execute Command  ${command}
+    ...           return_stdout=${true}  return_rc=${true}
+    Log  ${output}
+    Should Be Equal As Integers  ${rc}  0
+    [Return]  ${output}
+    

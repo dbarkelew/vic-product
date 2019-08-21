@@ -26,7 +26,7 @@ With this quickstart configuration, the DinV container is not saved and communic
 
 ## Configuration
 
-The DinV container is distributed prevalently through the Docker Hub, as of this writing, two versions of the engine are available: 1.13 and 1.12, versions can be used as a tag for the container (e.g. `vmware/dch-photon:1.12`).
+The DinV container is distributed prevalently through the Docker Hub, as of this writing, one version of the engine is available: 18.06, versions can be used as a tag for the container (e.g. `vmware/dch-photon:18.06`).
 
 When the container is run with the `-h` or `--help` flag, the help is shown and the container will quit without starting docker engine.
 
@@ -123,10 +123,24 @@ $ docker run -v mycerts:/certs -e DEBUG=true -p 12376:2376 -it vmware/dch-photon
 
 ### 4. Run a full-fledged DinV host with a separate network connection
 
+- Create and run the DinV container
+
+```console
+$ docker create --name dinv -v myregistry:/var/lib/docker --net=publicNet -p 2376:2376 -p 2375:2375 vmware/dch-photon
+```
+
+- Connect to DinV (this requires [jq](https://stedolan.github.io/jq/))
+```console
+$ export DOCKER_HOST=$(docker inspect dinv | jq -r .[].NetworkSettings.Networks.publicNet.IPAddress):2375
+$ docker info
+```
+
+### 5. Using certificates in a full-fledged DinV host with a separate network connection
+
 - Creates the DinV container, without starting the process
 
 ```console
-$ docker create --name dinv -v mycerts:/certs -v myregistry:/var/lib/docker --net=publicNet vmware/dch-photon -tlsverify
+$ docker create --name dinv -v mycerts:/certs -v myregistry:/var/lib/docker --net=publicNet -p 2376:2376 -p 2375:2375 vmware/dch-photon -tlsverify
 ```
 
 - Copy the certificates (pre created) into the newly created container

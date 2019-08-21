@@ -21,12 +21,16 @@ mkdir -p /etc/vmware/psc/harbor
 mkdir -p /etc/vmware/psc/engine
 mkdir -p /etc/vmware/psc/admiral
 
-version=$(grep "version" /etc/vmware/psc/admiral/psc-config.properties | awk -F= '{print $2}')
+PSC_BINARY="/etc/vmware/admiral/admiral-auth-psc-1.5.3-SNAPSHOT-command.jar"
+
+function getToken() {
+  /usr/bin/java -jar ${PSC_BINARY} --command=get-token --configFile="$1" --tokenFile="$2"
+}
 
 # Generate token files
-/usr/bin/java -jar /etc/vmware/admiral/admiral-auth-psc-1.2.0-SNAPSHOT-command.jar --command=get-token --version="$version" --configFile=/etc/vmware/psc/harbor/psc-config.properties --tokenFile=/etc/vmware/psc/harbor/tokens.properties
-/usr/bin/java -jar /etc/vmware/admiral/admiral-auth-psc-1.2.0-SNAPSHOT-command.jar --command=get-token --version="$version" --configFile=/etc/vmware/psc/engine/psc-config.properties --tokenFile=/etc/vmware/psc/engine/tokens.properties
-/usr/bin/java -jar /etc/vmware/admiral/admiral-auth-psc-1.2.0-SNAPSHOT-command.jar --command=get-token --version="$version" --configFile=/etc/vmware/psc/admiral/psc-config.properties --tokenFile=/etc/vmware/psc/admiral/tokens.properties
+getToken /etc/vmware/psc/harbor/psc-config.properties /etc/vmware/psc/harbor/tokens.properties
+getToken /etc/vmware/psc/engine/psc-config.properties /etc/vmware/psc/engine/tokens.properties
+getToken /etc/vmware/psc/admiral/psc-config.properties /etc/vmware/psc/admiral/tokens.properties
 
 # Put the engine token in guestinfo
 /etc/vmware/set_guestinfo.sh -f /etc/vmware/psc/engine/tokens.properties "engine.token"
@@ -34,14 +38,30 @@ version=$(grep "version" /etc/vmware/psc/admiral/psc-config.properties | awk -F=
 # Copy harbor token to container mount path
 mkdir -p /storage/data/harbor/psc
 cp /etc/vmware/psc/harbor/tokens.properties /storage/data/harbor/psc/tokens.properties
+chown --recursive 10000:10000 /storage/data/harbor/psc
 
-# Set PSC dir permissions
+# Set PSC dir permissions if not set
 dirs=("/etc/vmware/psc/admiral" "/etc/vmware/psc/engine" "/etc/vmware/psc/harbor")
+files=("psc-config.keystore" "psc-config.properties" "tokens.properties")
 for dir in "${dirs[@]}"; do
   while [ ! -d "$dir" ]; do
     echo "Waiting for $dir"
     sleep 1
   done
-  chmod --recursive 0600 "$dir"
-  chown --recursive 10000:10000 "$dir"
+  for file in "${files[@]}"; do
+    perms="$(stat -c %a "$dir/$file")"
+    if [ "$perms" != "600" ]; then
+      chmod 0600 "$dir/$file"
+      echo "set perms for $dir/$file"
+    else
+      echo "perms ok for $dir/$file"
+    fi
+    owner="$(stat -c %u:%g "$dir/$file")"
+    if [ "$owner" != "10000:10000" ]; then
+      chown 10000:10000 "$dir/$file"
+      echo "set owner for $dir/$file"
+    else
+      echo "owner ok for $dir/$file"
+    fi
+  done
 done

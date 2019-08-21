@@ -14,25 +14,75 @@
 # limitations under the License.
 set -euf -o pipefail
 
+declare -r mask="*******"
+
 umask 077
 
 ENV_FILE="/etc/vmware/environment"
 
-TLS_CERT="$(ovfenv -k appliance.tls_cert)"
-TLS_PRIVATE_KEY="$(ovfenv -k appliance.tls_cert_key)"
-TLS_CA_CERT="$(ovfenv -k appliance.ca_cert)"
-ADMIRAL_PORT="$(ovfenv -k management_portal.port)"
-REGISTRY_PORT="$(ovfenv -k registry.port)"
+# Keep as one string, formatted in vic-appliance-tls
+APPLIANCE_TLS_CERT="$(ovfenv -k appliance.tls_cert | sed -E ':a;N;$!ba;s/\r{0,1}\n//g')"
+APPLIANCE_TLS_PRIVATE_KEY="$(ovfenv -k appliance.tls_cert_key | sed -E ':a;N;$!ba;s/\r{0,1}\n//g')"
+APPLIANCE_TLS_CA_CERT="$(ovfenv -k appliance.ca_cert | sed -E ':a;N;$!ba;s/\r{0,1}\n//g')"
+
+ADMIRAL_PORT="$(ovfenv -k management_portal.management_portal_port)"
+REGISTRY_PORT="$(ovfenv -k registry.registry_port)"
 NOTARY_PORT="$(ovfenv -k registry.notary_port)"
 FILESERVER_PORT="$(ovfenv -k appliance.config_port)"
 HOSTNAME=""
 IP_ADDRESS=""
+DEFAULT_USERS_CREATE_DEF_USERS="$(ovfenv -k default_users.create_def_users)"
+DEFAULT_USERS_DEF_USER_PREFIX="$(ovfenv -k default_users.def_user_prefix)"
+DEFAULT_USERS_DEF_USER_PASSWORD="$(ovfenv -k default_users.def_user_password)"
+REGISTRY_GC_ENABLED="$(ovfenv --key registry.gc_enabled | tr '[:upper:]' '[:lower:]')"
 
-function detectHostname {
+# TODO split into separate unit to run before ovf-network and network-online
+APPLIANCE_PERMIT_ROOT_LOGIN="$(ovfenv --key appliance.permit_root_login)"
+NETWORK_FQDN="$(ovfenv --key network.fqdn)"
+NETWORK_IP0="$(ovfenv --key network.ip0)"
+NETWORK_NETMASK0="$(ovfenv --key network.netmask0)"
+NETWORK_GATEWAY="$(ovfenv --key network.gateway)"
+NETWORK_DNS="$(ovfenv --key network.DNS | sed 's/,/ /g' | tr -s ' ')"
+NETWORK_SEARCHPATH="$(ovfenv --key network.searchpath)"
+NETWORK_NTP="$(ovfenv --key network.ntp | sed 's/,/ /g' | tr -s ' ')"
+NETWORK_HTTP_PROXY="$(ovfenv --key network.http_proxy)"
+NETWORK_HTTPS_PROXY="$(ovfenv --key network.https_proxy)"
+NETWORK_NO_PROXY_LIST="$(ovfenv --key network.no_proxy_list)"
+
+# syslog server configuration
+SYSLOG_SRV_HOST="$(ovfenv --key syslog_server.syslog_srv_host)"
+SYSLOG_SRV_PORT="$(ovfenv --key syslog_server.syslog_srv_port)"
+SYSLOG_SRV_PROTOCOL="$(ovfenv --key syslog_server.syslog_srv_protocol | tr '[:upper:]' '[:lower:]')"
+SYSLOG_SRV_PORT=${SYSLOG_SRV_PORT:-514}
+SYSLOG_SRV_PROTOCOL=${SYSLOG_SRV_PROTOCOL:-udp}
+
+function detectHostname() {
   HOSTNAME=$(hostnamectl status --static) || true
   if [ -n "$HOSTNAME" ]; then
     echo "Using hostname from 'hostnamectl status --static': $HOSTNAME"
     return
+  fi
+}
+
+function firstboot() {
+  set +e
+  local tmp
+  tmp="$(ovfenv --key appliance.root_pwd)"
+  if [[ "$tmp" == "$mask" ]]; then
+    return
+  fi
+
+  echo "root:$tmp" | chpasswd
+  # Reset password expiration to 90 days by default
+  chage -d $(date +"%Y-%m-%d") -m 0 -M 90 root
+  set -e
+}
+
+function clearPrivate() {
+  # We then obscure the root password, if the VM is reconfigured with another
+  # password after deployment, we don't act on it and keep obscuring it.
+  if [[ "$(ovfenv --key appliance.root_pwd)" != "$mask" ]]; then
+    ovfenv --key appliance.root_pwd --set "$mask"
   fi
 }
 
@@ -59,15 +109,40 @@ echo "Using hostname: ${HOSTNAME}"
 
 
 {
-  echo "TLS_CERT=${TLS_CERT}";
-  echo "TLS_PRIVATE_KEY=${TLS_PRIVATE_KEY}";
-  echo "TLS_CA_CERT=${TLS_CA_CERT}";
-  echo "ADMIRAL_PORT=${ADMIRAL_PORT}";
-  echo "REGISTRY_PORT=${REGISTRY_PORT}";
-  echo "NOTARY_PORT=${NOTARY_PORT}";
-  echo "FILESERVER_PORT=${FILESERVER_PORT}";
   echo "VIC_MACHINE_SERVER_PORT=8443";
   echo "APPLIANCE_SERVICE_UID=10000";
   echo "HOSTNAME=${HOSTNAME}";
   echo "IP_ADDRESS=${IP_ADDRESS}";
+  echo "ADMIRAL_PORT=${ADMIRAL_PORT}";
+  echo "REGISTRY_PORT=${REGISTRY_PORT}";
+  echo "NOTARY_PORT=${NOTARY_PORT}";
+  echo "FILESERVER_PORT=${FILESERVER_PORT}";
+  echo "APPLIANCE_TLS_CERT=${APPLIANCE_TLS_CERT}";
+  echo "APPLIANCE_TLS_PRIVATE_KEY=${APPLIANCE_TLS_PRIVATE_KEY}";
+  echo "APPLIANCE_TLS_CA_CERT=${APPLIANCE_TLS_CA_CERT}";
+  echo "DEFAULT_USERS_CREATE_DEF_USERS=${DEFAULT_USERS_CREATE_DEF_USERS}";
+  echo "DEFAULT_USERS_DEF_USER_PREFIX=${DEFAULT_USERS_DEF_USER_PREFIX}";
+  echo "DEFAULT_USERS_DEF_USER_PASSWORD=${DEFAULT_USERS_DEF_USER_PASSWORD}";
+  echo "REGISTRY_GC_ENABLED=${REGISTRY_GC_ENABLED}";
+  echo "APPLIANCE_PERMIT_ROOT_LOGIN=${APPLIANCE_PERMIT_ROOT_LOGIN}";
+  echo "NETWORK_FQDN=${NETWORK_FQDN}";
+  echo "NETWORK_IP0=${NETWORK_IP0}";
+  echo "NETWORK_NETMASK0=${NETWORK_NETMASK0}";
+  echo "NETWORK_GATEWAY=${NETWORK_GATEWAY}";
+  echo "NETWORK_DNS=${NETWORK_DNS}";
+  echo "NETWORK_NTP=${NETWORK_NTP}";
+  echo "NETWORK_SEARCHPATH=${NETWORK_SEARCHPATH}";
+  echo "NETWORK_HTTP_PROXY=${NETWORK_HTTP_PROXY}";
+  echo "NETWORK_HTTPS_PROXY=${NETWORK_HTTPS_PROXY}";
+  echo "NETWORK_NO_PROXY_LIST=${NETWORK_NO_PROXY_LIST}";
+  echo "SYSLOG_SRV_HOST=${SYSLOG_SRV_HOST}";
+  echo "SYSLOG_SRV_PORT=${SYSLOG_SRV_PORT}";
+  echo "SYSLOG_SRV_PROTOCOL=${SYSLOG_SRV_PROTOCOL}";
 } > ${ENV_FILE}
+
+# Only run on first boot
+if [[ ! -f /etc/vmware/firstboot ]]; then
+  firstboot
+fi
+# Remove private values from ovfenv
+clearPrivate

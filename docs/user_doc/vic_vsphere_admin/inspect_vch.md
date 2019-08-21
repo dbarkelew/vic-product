@@ -18,7 +18,9 @@ In addition to the common options described in [Common `vic-machine` Options](co
 The following example includes the options required to obtain information about a named instance of a VCH from a simple vCenter Server environment. 
 
 <pre>$ vic-machine-<i>operating_system</i> inspect
-    --target <i>vcenter_server_username</i>:<i>password</i>@<i>vcenter_server_address</i>
+    --target <i>vcenter_server_address</i>
+    --user Administrator@vsphere.local
+    --password <i>password</i>
     --thumbprint <i>certificate_thumbprint</i>
     --name <i>vch_name</i>
 </pre>
@@ -26,17 +28,18 @@ The following example includes the options required to obtain information about 
 The following example includes the `--tls-cert-path` option, for a VCH that stores client certificates in a non-default location.
 
 <pre>$ vic-machine-<i>operating_system</i> inspect
-    --target <i>vcenter_server_username</i>:<i>password</i>@<i>vcenter_server_address</i>
+    --target <i>vcenter_server_address</i>
+    --user Administrator@vsphere.local
+    --password <i>password</i>
     --thumbprint <i>certificate_thumbprint</i>
     --name <i>vch_name</i>
     --tls-cert-path <i>path_to_certificates</i>
 </pre>
 
-### Output
+## Output
 
 The `vic-machine inspect` command displays general information about the VCH, its version and upgrade status, and details about how to connect to the VCH:
 
-- The VCH ID:<pre>VCH ID: VirtualMachine:vm-101</pre> The vSphere Managed Object Reference, or moref, of the VCH. You can use the VCH ID when you run the `vic-machine delete`, `configure`, or `debug` commands. Using a VCH ID reduces the number of options that you need to specify when you run those commands.
 - The version of the `vic-machine` utility and the version of the VCH that you are inspecting.<pre>Installer version: <i>vic_machine_version</i>-<i>vic_machine_build</i>-<i>git_commit</i>
 VCH version: <i>vch_version</i>-<i>vch_build</i>-<i>git_commit</i></pre>
 
@@ -44,10 +47,13 @@ VCH version: <i>vch_version</i>-<i>vch_build</i>-<i>git_commit</i></pre>
 Installer has same version as VCH
 No upgrade available with this installer version</pre>
   If `vic-machine inspect` reports a difference between the version or build number of `vic-machine` and the version or build number of the VCH, the upgrade status is `Upgrade available`. 
+  
+- The VCH ID:<pre>VCH ID: VirtualMachine:vm-101</pre> The vSphere Managed Object Reference, or moref, of the VCH. You can use the VCH ID when you run the `vic-machine delete`, `configure`, or `debug` commands. Using a VCH ID reduces the number of options that you need to specify when you run those commands.
 
-- The address of the VCH Admin portal for the VCH.<pre>VCH Admin Portal:
-https://<i>vch_address</i>:2378</pre>
+- The address of the VCH Admin portal for the VCH.<pre>VCH Admin Portal: https://<i>vch_address</i>:2378</pre>
 
+- Information about the default bridge network configuration.<pre>VCH Default Bridge Network Range: 172.16.0.0/12
+VCH Default Bridge Network Width: 16</pre>**NOTE**: This information is available in vSphere Integrated Containers 1.5.2 and later.
 - The address at which the VCH publishes ports.<pre><i>vch_address</i></pre>
 - The Docker environment variables that container developers can use when connecting to this VCH, depending on the the level of security that the VCH implements.
   - VCH with server and client authentication (`tlsverify`):<pre>DOCKER_TLS_VERIFY=1 

@@ -13,9 +13,21 @@
 # limitations under the License
 
 *** Settings ***
-Documentation  This resource contains any keywords dealing with browser UI testing
+Documentation  This resource contains any general keywords dealing with browser UI testing
+Resource  ../resources/Util.robot
 
 *** Keywords ***
 Open Firefox Browser
     Log To Console  \nOpening firefox browser...
     Open Browser  about:  browser=${FIREFOX_BROWSER}  remote_url=${GRID_URL}
+
+Wait Until Element Is Visible And Enabled
+    [Arguments]  ${element}
+	Wait Until Element Is Visible  ${element}
+	Wait Until Element Is Enabled  ${element}
+
+Print Values And Select One From List
+    [Arguments]  ${element}  ${value}
+    ${values}=  Get List Items  ${element}  values=True
+    Log  ${values}
+    Select From List By Value  ${element}  ${value}

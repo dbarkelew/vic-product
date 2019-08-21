@@ -25,7 +25,7 @@ cp -p /var/tmp/harbor/harbor.cfg /data/harbor
 cp -pr /var/tmp/harbor/{prepare,common,docker-compose.yml,docker-compose.notary.yml,docker-compose.clair.yml} /etc/vmware/harbor
 
 # Get Harbor to Admiral data migration script
-curl -L"#" -o /etc/vmware/harbor/admiral_import https://raw.githubusercontent.com/vmware/harbor/master/tools/migration/import
+curl -L"#" -o /etc/vmware/harbor/admiral_import https://raw.githubusercontent.com/goharbor/harbor/master/tools/migration/db/tools/import
 chmod +x /etc/vmware/harbor/admiral_import
 
 function overrideDataDirectory {
@@ -36,11 +36,13 @@ f = open(file, "r+")
 dataMap = yaml.safe_load(f)
 for _, s in enumerate(dataMap["services"]):
   if "restart" in dataMap["services"][s]:
-      if "always" in dataMap["services"][s]["restart"]:
-        dataMap["services"][s]["restart"] = "on-failure"
+    if "always" in dataMap["services"][s]["restart"]:
+      dataMap["services"][s]["restart"] = "on-failure"
+  if s == "clair":
+    dataMap["services"][s]["cpu_quota"] = 50000
   if "volumes" in dataMap["services"][s]:
     for kvol, vol in enumerate(dataMap["services"][s]["volumes"]):
-      # Fixing up volumes in compose file. 
+      # Fixing up volumes in compose file.
       if vol.startswith( '/data/database' ):
         dataMap["services"][s]["volumes"][kvol] = vol.replace("/data/database", "/storage/db/harbor/database", 1)
       elif vol.startswith( '/data/notary-db' ):
@@ -66,6 +68,18 @@ overrideDataDirectory /etc/vmware/harbor/docker-compose.clair.yml
 chmod 600 /data/harbor/harbor.cfg
 chmod -R 600 /etc/vmware/harbor/common
 
+# Redirect vic_appliance_address:443 to Admiral UI, see vic-product/2216
+CONF_DIR='/etc/vmware/harbor/common/templates/nginx/ext'
+mkdir -p ${CONF_DIR}
+cat << EOF > ${CONF_DIR}/harbor.https.vic.conf
+location ~ ^/$ {
+  return 302 https://\$host:8282\$request_uri;
+}
+EOF
+
 # Write version files
 echo "harbor=${BUILD_HARBOR_FILE}" >> /data/version
 echo "harbor=${BUILD_HARBOR_FILE}" >> /etc/vmware/version
+
+# Clean up cache
+rm -f /etc/cache/${BUILD_HARBOR_FILE}

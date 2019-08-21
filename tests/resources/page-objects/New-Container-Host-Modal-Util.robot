@@ -17,13 +17,13 @@ Documentation  This resource contains any keywords dealing with New Container Ho
 
 *** Variables ***
 # css locators
-${nch-title}  css=.modal-title
+${nch-title}  //div[contains(text(),'New Container Host')]
 ${nch-name}  id=name
 ${nch-url}  id=url
-${nch-select-creds}  css=.dropdown-select button
-${nch-dropdown-creds}  css=.dropdown-options li a
-${nch-default-cert-option}  css=a[data-name=default-ca-cert]
-${nch-button-save}  css=.modal-footer .btn-primary
+${nch-select-creds}  xpath://select[@data-name="cluster-create-credentials"]
+${nch-default-cert-option}  default-ca-cert
+${nch-no-selection}  xpath://option[contains(text(),'No selection')]
+${nch-button-save}  css=button.saveCluster-btn
 
 # expected text values
 ${nch-title-text}  New Container Host
@@ -31,14 +31,14 @@ ${nch-title-text}  New Container Host
 *** Keywords ***
 Verify New Container Host Modal
     Wait Until Element Is Visible  ${nch-title}  timeout=${EXPLICIT_WAIT}
-    Element Text Should Be  ${nch-title}  ${nch-title-text}
 
 Add New Container Host
     [Arguments]  ${name}  ${url}  ${creds}=${nch-default-cert-option}
     Input Text  ${nch-name}  ${name}
     Input Text  ${nch-url}  ${url}
-    Click Button  ${nch-select-creds}
-    Click Link  ${creds}
+    Wait Until Element Is Visible  ${nch-no-selection}  timeout=${EXPLICIT_WAIT}
+    Click Element  ${nch-select-creds}
+    Select From List By Label  ${nch-select-creds}  ${creds}
     Click Button  ${nch-button-save}
     Verify Modal for Verify Certificate
     Click Yes On Verify Certificate

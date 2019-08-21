@@ -9,11 +9,14 @@ vSphere Integrated Containers supports the use of container volumes. You can cre
 - [Create a Volume in a Volume Store](#create_vol)
 - [Creating Volumes from Images](#image_volumes)
 - [Create a Container with a New Anonymous or Named Volume](#create_container)
+  - [Create a Container with a New Anonymous Volume](#create_container_anon)
+  - [Create a Container with a Named Volume](#create_container_named)
 - [Mount Existing vSphere-Backed Volumes on Containers](#mount)
 - [Sharing NFS-Backed Volumes Between Containers](#mount_nfs)
 - [Obtain Information About a Volume](#inspect_vol) 
 - [Delete a Named Volume from a Volume Store](#delete_vol)
 - [Delete a Container and the Anonymous Volumes Attached to It](#delete_anon_vol)
+- [Run a Container and Delete the Anonymous Volumes Attached to it when it Stops](#delete_vol_stop)
 
 For simplicity, the examples in this topic assume that the VCHs implement TLS authentication with self-signed server certificates, with no client verification.
 
@@ -99,8 +102,9 @@ If you intend to create named or anonymous volumes by using `docker create -v` w
 **NOTES**: 
 - vSphere Integrated Containers Engine does not support mounting  vSphere datastore folders as data volumes. A command such as <code>docker create -v /<i>folder_name</i>:/<i>folder_name</i> busybox</code> is not supported if the volume store is a vSphere datastore.
 - If you use `docker create -v` to create containers and mount new volumes on them, vSphere Integrated Containers Engine only supports the `-r` and `-rw` options.
+- Anonymous volumes are only recommended for development rather than production environments. A valid use case for anonymous volumes is the creation of ephemeral Docker build hosts for a CI pipeline.
 
-### Create a Container with a New Anonymous Volume ###
+### Create a Container with a New Anonymous Volume <a id="create_container_anon"></a>
 
 To create an anonymous volume, you include the path to the destination at which you want to mount the anonymous volume in the `docker create -v` command. Docker creates the anonymous volume in the `default` volume store, if it exists. The VCH mounts the anonymous volume on the container.
 
@@ -112,7 +116,7 @@ The `docker create -v` example below performs the following actions:
 <pre>docker -H <i>virtual_container_host_address</i>:2376 --tls 
 create -v /volumes busybox</pre>
 
-### Create a Container with a Named Volume ###
+### Create a Container with a Named Volume <a id="create_container_named"></a>
 
 To create a container with a new named volume, you specify a volume name in the `docker create -v` command. When you create containers that with named volumes, the VCH checks whether the volume exists in the volume store, and if it does not, creates it. The VCH mounts the existing or new volume on the container.
 
@@ -162,6 +166,8 @@ If your volume store is in an NFS share point, sharing volumes between container
 
 <pre>docker volume create --opt volumestore=<i>nfs_volumestore_name</i></pre>
 
+**NOTE**: vSphere Integrated Containers mounts NFS volumes as `root`. Consequently, if containers are to run as non-root users, the volume  store must be configured with the correct permissions so that the non-root users can access it. For information about how to configure NFS volume stores for non-root users, see [About NFS Volume Stores and Permissions](../vic_vsphere_admin/volume_stores.md#nfs_perms) in *vSphere Integrated Containers for vSphere Administrators*.
+
 ## Obtain Information About a Volume <a id="inspect_vol"></a>
 To get information about a volume, run `docker volume inspect` and specify the name of the volume.
 <pre>docker -H <i>virtual_container_host_address</i>:2376 --tls 
@@ -178,3 +184,9 @@ volume rm <i>volume_name</i></pre>
 To remove a container and anonymous volumes joined to that container, run `docker rm -v`. If an anonymous volume is in use by another container, it is not removed.
 
 <pre>$ docker rm -v container1</pre>
+
+## Run a Container and Delete the Anonymous Volumes Attached to it when it Stops <a id="delete_vol_stop"></a>
+
+To run a container that creates anonymous volumes and then removes those volumes at the end of its run, run `docker run --rm`.
+
+<pre>$ docker run --rm container1</pre>

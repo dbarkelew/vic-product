@@ -2,25 +2,6 @@
 
 When you deploy a virtual container host (VCH), you must select the compute resource in your virtual infrastructure in which to deploy the VCH. You can optionally configure resource usage limits on the VCH.
 
-- [Options](#options)
-  - [Compute Resource](#compute-resource)
-  - [CPU](#cpu)
-  - [Memory](#memory)
-- [Advanced Options](#advanced)
-  - [CPU Reservation](#cpures)
-  - [CPU Shares](#cpushares)
-  - [Memory Reservation](#memoryres)
-  - [Memory Shares](#memoryshares)
-  - [Endpoint VM CPUs](#endpointcpu)
-  - [Endpoint VM Memory](#endpointmemory)
-- [What to Do Next](#whatnext)
-- [Example `vic-machine` Commands](#examples)
-  - [Deploy to a vCenter Server Cluster with Multiple Datacenters and Datastores](#cluster)
-  - [Deploy to a Specific Standalone Host in vCenter Server](#standalone)
-  - [Deploy to a Resource Pool on an ESXi Host](#rp_host)
-  - [Deploy to a Resource Pool in a vCenter Server Cluster](#rp_cluster)
-  - [Set Limits on Resource Use](#customized) 
-
 ## Options <a id="options"></a>
 
 The sections in this topic each correspond to an entry in the Compute Capacity page of the Create Virtual Container Host wizard and to the  corresponding `vic-machine create` options.
@@ -29,7 +10,16 @@ The sections in this topic each correspond to an entry in the Compute Capacity p
 
 The host, cluster, or resource pool in which to deploy the VCH. 
 
-**NOTE**: You cannot deploy a VCH to a specific host in a cluster. You deploy the VCH to the cluster, and DRS manages the placement of the VCH on a host.
+#### Deploying VCHs to Clusters With and Without DRS
+
+When deploying VCHs to a cluster, you cannot deploy a VCH to a specific host in the cluster. You deploy the VCH to the cluster. The placement of the VCH, and its associated container VMs, is determined according to whether a given host is appropriate for powering on container VMs. You can also limit the hosts in a cluster on which VCHs are deployed by using [VM-Host affinity rules](#hostaffinity).
+
+- If VMware vSphere Distributed Resource Scheduler (DRS) is enabled on that cluster, DRS manages the placement of the VCH and container VMs on hosts. 
+- If DRS is not enabled, the cluster selects a host and vSphere Integrated Containers checks whether the selected host is appropriate for the powering on of container VMs.  
+
+VMware recommends that you enable DRS on clusters whenever possible. Deployment does not fail if DRS is not enabled, but a warning is issued in the deployment log. 
+
+Clusters that do not implement DRS do not support resource pools. If you deploy a VCH to a cluster on which DRS is disabled, the VCH is created in a VM folder. Consequently, if you specify any options that apply to the memory or CPU configuration of the VCH resource pool, these options are ignored, with a warning in the deployment log. 
 
 #### Create VCH Wizard 
 
@@ -67,6 +57,8 @@ To deploy to a specific resource pool in a cluster, if the resource pool name is
 
 Limit the amount of CPU capacity that is available for use by the VCH resource pool. This limit also applies to the container VMs that run in the VCH resource pool. Specify the CPU capacity in MHz.
 
+**NOTE**: Clusters that do not implement DRS do not support resource pools. If you are deploying the VCH to a cluster on which DRS is not enabled and you specify this option, it is ignored. A warning appears in the deployment log. 
+
 #### Create VCH Wizard 
 
 In the **CPU** text box, leave the default value of `Unlimited`,  or optionally enter a limit of between the minimum and maximum shown. 
@@ -83,9 +75,11 @@ Specify a CPU limit value in MHz. If not specified, `vic-machine create` sets th
 
 Limit the amount of memory that is available for use by the VCH resource pool. This limit also applies to the container VMs that run in the VCH resource pool. Specify the memory limit value in MB. 
 
+**NOTE**: Clusters that do not implement DRS do not support resource pools. If you are deploying the VCH to a cluster on which DRS is not enabled and you specify this option, it is ignored. A warning appears in the deployment log. 
+
 #### Create VCH Wizard 
 
-In the **Memory** text box, leave the default value of `Unlimited`, or optionally enter a limit of between the minimum and maximum shown.  
+In the **Memory** text box, leave the default value of `Unlimited`, or optionally enter a limit of between the minimum and maximum shown. 
 
 #### vic-machine Option   
 
@@ -101,11 +95,13 @@ When using the Create Virtual Container Host wizard, if you change any of the ad
 
 If you are using `vic-machine`, the options in this section are exposed in the `vic-machine create` help if you run `vic-machine create --extended-help`, or `vic-machine create -x`.
 
-For information about vSphere memory and CPU shares and reservations, see [Allocate Memory Resources](https://docs.vmware.com/en/VMware-vSphere/6.5/com.vmware.vsphere.vm_admin.doc/GUID-49D7217C-DB6C-41A6-86B3-7AFEB8BF575F.html), and [Allocate CPU Resources](https://docs.vmware.com/en/VMware-vSphere/6.5/com.vmware.vsphere.vm_admin.doc/GUID-6C9023B2-3A8F-48EB-8A36-44E3D14958F6.html) in the vSphere documentation.
+For information about vSphere memory and CPU shares and reservations, see [Allocate Memory Resources](https://docs.vmware.com/en/VMware-vSphere/6.7/com.vmware.vsphere.vm_admin.doc/GUID-49D7217C-DB6C-41A6-86B3-7AFEB8BF575F.html), and [Allocate CPU Resources](https://docs.vmware.com/en/VMware-vSphere/6.7/com.vmware.vsphere.vm_admin.doc/GUID-6C9023B2-3A8F-48EB-8A36-44E3D14958F6.html) in the vSphere documentation.
 
 ### CPU Reservation <a id="cpures"></a>
 
 Reserve a quantity of CPU capacity for use by the VCH resource pool. This limit also applies to the container VMs that run in the VCH resource pool.  Specify the CPU reservation value in MHz. 
+
+**NOTE**: Clusters that do not implement DRS do not support resource pools. If you are deploying the VCH to a cluster on which DRS is not enabled and you specify this option, it is ignored. A warning appears in the deployment log. 
 
 #### Create VCH Wizard 
 
@@ -124,6 +120,8 @@ Specify a limit in MHz. If not specified, `vic-machine create` sets the reservat
 
 Set CPU shares on the VCH resource pool. This limit also applies to the container VMs that run in the VCH resource pool.  
 
+**NOTE**: Clusters that do not implement DRS do not support resource pools. If you are deploying the VCH to a cluster on which DRS is not enabled and you specify this option, it is ignored. A warning appears in the deployment log. 
+
 #### Create VCH Wizard 
 
 1. Expand **Advanced**.
@@ -141,6 +139,8 @@ Specify the share value as a level or a number, for example `high`, `normal`, `l
 
 Reserve a quantity of memory for use by the VCH resource pool. This limit also applies to the container VMs that run in the VCH resource pool. Specify the memory reservation value in MB.  
 
+**NOTE**: Clusters that do not implement DRS do not support resource pools. If you are deploying the VCH to a cluster on which DRS is not enabled and you specify this option, it is ignored. A warning appears in the deployment log. 
+
 #### Create VCH Wizard 
 
 1. Expand **Advanced**.
@@ -157,6 +157,8 @@ Specify a limit in MB. If not specified, `vic-machine create` sets the reservati
 ### Memory Shares <a id="memoryshares"></a>
 
 Set memory shares on the VCH resource pool. This limit also applies to the container VMs that run in the VCH resource pool.  
+
+**NOTE**: Clusters that do not implement DRS do not support resource pools. If you are deploying the VCH to a cluster on which DRS is not enabled and you specify this option, it is ignored. A warning appears in the deployment log. 
 
 #### Create VCH Wizard 
 
@@ -194,7 +196,9 @@ Specify a value of greater than 1. If not specified, `vic-machine create` sets t
 
 The amount of memory for the VCH endpoint VM. Set this option to increase the amount of memory in the VCH endpoint VM if the VCH will pull large container images.
 
-**NOTE** With the exception of VCHs that pull large container images, increase the overall amount of memory for the VCH resource pool, rather than the amount of memory of the VCH endpoint VM. Use `docker create -m` to set the memory on container VMs. This option is mainly intended for use by VMware Support.
+Image layers are stored in memory during `docker pull`. If you have enabled or inherited memory usage alerts on the VCH endpoint VM and you download an image with a large VMFS virtual disk (VMDK), you might trigger a memory usage alert. You might want to reconfigure the alerts to avoid receiving warnings related to size.
+
+**NOTE**: With the exception of VCHs that pull large container images, increase the overall amount of memory for the VCH resource pool, rather than the amount of memory of the VCH endpoint VM. Use `docker create -m` to set the memory on container VMs. This option is mainly intended for use by VMware Support.
 
 #### Create VCH Wizard 
 
@@ -209,13 +213,54 @@ Specify a value in MB. If not specified, `vic-machine create` sets memory to 204
 
 <pre>--endpoint-memory <i>amount_of_memory</i></pre>
 
+### VM-Host Affinity  <a id="hostaffinity"></a>
+
+When you deploy a virtual container host, you can optionally instruct vSphere Integrated Containers to automatically create a DRS VM group in vSphere for the VCH endpoint VM and its container VMs. If you use this option, you can  use the resulting VM group in DRS VM-Host affinity rules, to restrict the set of hosts on which the VCH endpoint VM and its container VMs can run.
+
+You might want to restrict the set of hosts on which the VCH and container VMs run for the following reasons:
+
+- Software licensing, for example if your organization is billed based on the number of physical hosts, sockets, or cores that run a particular piece of software.
+- Compliance with internal policies.
+- Latency-sensitivity, for workloads that run in an environment with stretched clusters.
+
+For more information about DRS affinity rules, see [Using DRS Affinity Rules](https://docs.vmware.com/en/VMware-vSphere/6.7/com.vmware.vsphere.resmgmt.doc/GUID-FF28F29C-8B67-4EFF-A2EF-63B3537E6934.html) in the vSphere documentation.
+
+vSphere allows you to express VM-Host affinity rules either as a requirement (*must*/*must not* rules) or a preference (*should*/*should not* rules).
+
+  - If you define *must* rules, DRS does not allow the VMs to run on other hosts, even in extreme circumstances. For example, vSphere HA does not perform failovers to hosts that are not in the DRS host group. 
+  - If you define *should* rules, violations produce a log event and are reported as faults on the **Configure** > **vSphere DRS** view for the cluster.
+
+To set VM-Host affinity rules on a VCH, you perform the following steps:
+
+- In vSphere, create a DRS host group that includes the set of hosts to which to limit VCH and container VM workloads.
+- Deploy a VCH with the `vic-machine create --affinity-vm-group` option, which automatically creates a DRS VM group in vSphere for the VCH and its container VMs.
+- In vSphere, create a VM-Host affinity rule that includes the VM group and the host group. This ensures that the VCH endpoint VM and container VMs in the VM group only run on the hosts that you specified in the host group.
+
+**IMPORTANT**: Because you define VM-host affinity rules on clusters, all of the hosts in a DRS host group must be in the same cluster.
+
+#### Create VCH Wizard
+
+Create a DRS VM group in vSphere for the VCH endpoint VM and its container VMs. Check this option to create a DRS group with the same name as the VCH. You can use the resulting VM group in DRS VM-Host affinity rules to restrict the set of hosts on which the VCH endpoint VM and its container VMs can run. 
+
+1. Expand **Advanced**.
+2. In  **VM-Host Affinity**, check the **Create a DRS VM Group for this VCH** checkbox to create a DRS group with the same name as the VCH. 
+
+#### vic-machine Option
+`--affinity-vm-group`, no short name
+
+The `--affinity-vm-group` option takes no arguments. You can only use this option when deploying a VCH to a cluster with DRS enabled.
+
+<pre>--affinity-vm-group</pre>
+
+When deployment of the VCH finishes, go to **Hosts & Clusters**, *cluster* > **Configure** > **VM/Host Groups** in the vSphere Client. You see a VM group that has the same name as the VCH. You can associate this VM group with a set of specific hosts by creating a host group and adding both the VM group and the host group to a DRS VM-Host affinity rule.
+
 ## What to Do Next <a id="whatnext"></a>
 
 If you are using the Create Virtual Container Host wizard, click **Next** to go to the [Storage Capacity](vch_storage.md) settings.
 
 ## Example `vic-machine` Commmands <a id="examples"></a>
 
-The following examples show `vic-machine create` commands that use the options described in this topic. For simplicity, the examples all use the `--no-tlsverify` option to automatically generate server certificates but disable client authentication. The examples use an existing port group named `vch1-bridge` for the bridge network and designate `datastore1` as the image store. 
+The following examples show `vic-machine create` commands that use the options described in this topic. For simplicity, the examples all use the `--no-tlsverify` option to automatically generate server certificates but disable client authentication. The examples use existing port groups named `vch1-bridge` and `vic-public` for the bridge and public networks, and designate `datastore1` as the image store. 
 
 ### Deploy to a vCenter Server Cluster with Multiple Datacenters and Datastores <a id="cluster"></a>
 
@@ -226,6 +271,7 @@ This example `vic-machine create` command deploys a VCH named `vch1` to the clus
 --compute-resource cluster1
 --image-store datastore1
 --bridge-network vch1-bridge
+--public-network vic-public
 --name vch1
 --thumbprint <i>certificate_thumbprint</i>
 --no-tlsverify
@@ -238,6 +284,7 @@ This example `vic-machine create` command deploys a VCH on the ESXi host with th
 <pre>vic-machine-<i>operating_system</i> create
 --target 'Administrator@vsphere.local':<i>password</i>@<i>vcenter_server_address</i>/dc1
 --bridge-network vch1-bridge
+--public-network vic-public
 --image-store datastore1
 --compute-resource esxihost1.organization.company.com
 --name vch1
@@ -266,6 +313,7 @@ This example `vic-machine create` command deploys a VCH into a resource pool nam
 --compute-resource 'rp 1'
 --image-store datastore1
 --bridge-network vch1-bridge
+--public-network vic-public
 --name vch1
 --thumbprint <i>certificate_thumbprint</i>
 --no-tlsverify
@@ -278,6 +326,7 @@ If the name of the resource pool is not unique across all clusters, for example 
 --compute-resource 'cluster 1'/Resources/'rp 1'
 --image-store datastore1
 --bridge-network vch1-bridge
+--public-network vic-public
 --name vch1
 --thumbprint <i>certificate_thumbprint</i>
 --no-tlsverify
@@ -292,6 +341,7 @@ This example `vic-machine create` command sets resource limits on the VCH by imp
 --compute-resource cluster1
 --image-store datastore1
 --bridge-network vch1-bridge
+--public-network vic-public
 --memory 1024
 --memory-reservation 1024
 --memory-shares low
@@ -302,3 +352,19 @@ This example `vic-machine create` command sets resource limits on the VCH by imp
 --thumbprint <i>certificate_thumbprint</i>
 --no-tlsverify
 </pre>
+
+###Deploy VCH that specifies Host Affinity Group<a id="affinitygroup"></a>
+
+This example `vic-machine create` command deploys a VCH that specifies `--affinity-vm-group`. After deployment, the VCH and all of its container VMs belong to an automatically created DRS VM affinity group that has the same name as the the VCH.
+
+<pre>vic-machine-<i>operating_system</i> create
+--target 'Administrator@vsphere.local':<i>password</i>@<i>vcenter_server_address</i>/dc1
+--compute-resource cluster1
+--image-store datastore1
+--bridge-network vch1-bridge
+--public-network vic-public
+--name vch1
+--thumbprint <i>certificate_thumbprint</i>
+--no-tlsverify
+--affinity-vm-group
+</pre> 
